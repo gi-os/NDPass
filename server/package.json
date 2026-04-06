@@ -1,0 +1,16 @@
+{
+  "name": "ndpass-server",
+  "version": "1.0.0",
+  "description": "NDPass backend — Apple Wallet pass signing + AI ticket parsing proxy",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "@fastify/cors": "^10.0.0",
+    "passkit-generator": "^3.3.0",
+    "uuid": "^10.0.0"
+  }
+}

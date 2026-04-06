@@ -1,8 +1,14 @@
 import { ParsedTicketData } from './types';
 import * as FileSystem from 'expo-file-system';
 
-// Store your API key securely — in production use expo-secure-store
-// For now, set this in your .env or replace before building
+// ── Configuration ───────────────────────────────────────────
+// Option A: Direct Anthropic call (API key on device — dev only)
+// Option B: Server proxy (recommended — key stays on BasilNet)
+//
+// Set EXPO_PUBLIC_NDPASS_SERVER to your server URL to use proxy mode.
+// If not set, falls back to direct Anthropic call.
+
+const NDPASS_SERVER = process.env.EXPO_PUBLIC_NDPASS_SERVER ?? '';
 const ANTHROPIC_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 const PARSE_PROMPT = `You are a movie ticket parser. Analyze this image of a movie ticket and extract the following information. Return ONLY valid JSON, no markdown, no backticks, no explanation.
@@ -25,18 +31,59 @@ Rules:
 - If this is NOT a movie ticket, return {"error": "not_a_ticket", "confidence": 0}`;
 
 export async function parseTicketImage(imageUri: string): Promise<ParsedTicketData> {
-  if (!ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY not set. Add EXPO_PUBLIC_ANTHROPIC_API_KEY to your .env');
-  }
-
   // Read image as base64
   const base64 = await FileSystem.readAsStringAsync(imageUri, {
     encoding: FileSystem.EncodingType.Base64,
   });
 
-  // Detect media type from URI
   const isJpg = imageUri.toLowerCase().includes('.jpg') || imageUri.toLowerCase().includes('.jpeg');
   const mediaType = isJpg ? 'image/jpeg' : 'image/png';
+
+  // Route to server or direct based on config
+  const parsed = NDPASS_SERVER
+    ? await parseViaServer(base64, mediaType)
+    : await parseDirectly(base64, mediaType);
+
+  if ((parsed as any).error === 'not_a_ticket') {
+    throw new Error('This doesn\'t look like a movie ticket. Try another photo.');
+  }
+
+  return {
+    movieTitle: parsed.movieTitle ?? 'Unknown',
+    theater: parsed.theater ?? 'Unknown',
+    date: parsed.date ?? new Date().toISOString().split('T')[0],
+    time: parsed.time ?? '7:00 PM',
+    seat: parsed.seat ?? undefined,
+    price: parsed.price ?? undefined,
+    confidence: parsed.confidence ?? 0.5,
+  };
+}
+
+// ── Server proxy mode (recommended) ────────────────────────
+async function parseViaServer(base64: string, mediaType: string): Promise<any> {
+  const response = await fetch(`${NDPASS_SERVER}/parse`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: base64, mediaType }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Server error: ${response.status} — ${err}`);
+  }
+
+  return response.json();
+}
+
+// ── Direct Anthropic mode (dev/fallback) ────────────────────
+async function parseDirectly(base64: string, mediaType: string): Promise<any> {
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error(
+      'No API key or server configured.\n\n' +
+      'Set EXPO_PUBLIC_NDPASS_SERVER (recommended)\n' +
+      'or EXPO_PUBLIC_ANTHROPIC_API_KEY in .env'
+    );
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -54,16 +101,9 @@ export async function parseTicketImage(imageUri: string): Promise<ParsedTicketDa
           content: [
             {
               type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: base64,
-              },
+              source: { type: 'base64', media_type: mediaType, data: base64 },
             },
-            {
-              type: 'text',
-              text: PARSE_PROMPT,
-            },
+            { type: 'text', text: PARSE_PROMPT },
           ],
         },
       ],
@@ -77,22 +117,6 @@ export async function parseTicketImage(imageUri: string): Promise<ParsedTicketDa
 
   const data = await response.json();
   const text = data.content?.[0]?.text ?? '';
-
-  // Parse the JSON response
   const cleaned = text.replace(/```json\n?|```/g, '').trim();
-  const parsed = JSON.parse(cleaned);
-
-  if (parsed.error === 'not_a_ticket') {
-    throw new Error('This doesn\'t look like a movie ticket. Try another photo.');
-  }
-
-  return {
-    movieTitle: parsed.movieTitle ?? 'Unknown',
-    theater: parsed.theater ?? 'Unknown',
-    date: parsed.date ?? new Date().toISOString().split('T')[0],
-    time: parsed.time ?? '7:00 PM',
-    seat: parsed.seat ?? undefined,
-    price: parsed.price ?? undefined,
-    confidence: parsed.confidence ?? 0.5,
-  };
+  return JSON.parse(cleaned);
 }

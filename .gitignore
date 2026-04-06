@@ -9,6 +9,8 @@ dist/
 *.orig.*
 web-build/
 .env
+server/.env
+server/certs/
 ios/
 android/
 
