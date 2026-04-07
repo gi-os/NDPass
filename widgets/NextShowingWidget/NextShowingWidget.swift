@@ -26,21 +26,63 @@ struct NextShowingProvider: TimelineProvider {
                 time: "7:30 PM",
                 posterUrl: nil,
                 dominantColor: "#E8A63A"
-            )
+            ),
+            relevance: nil
         )
     }
     
     func getSnapshot(in context: Context, completion: @escaping (NextShowingEntry) -> Void) {
-        let entry = NextShowingEntry(date: Date(), showing: loadNextShowing())
+        let entry = NextShowingEntry(date: Date(), showing: loadNextShowing(), relevance: nil)
         completion(entry)
     }
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextShowingEntry>) -> Void) {
         let showing = loadNextShowing()
-        let entry = NextShowingEntry(date: Date(), showing: showing)
-        // Refresh every 30 minutes
+        var entries: [NextShowingEntry] = []
+        
+        // Current entry
+        entries.append(NextShowingEntry(date: Date(), showing: showing, relevance: nil))
+        
+        // If there's an upcoming showing, create high-relevance entries
+        // starting 3 hours before showtime so Smart Stack surfaces the widget
+        if let showing = showing {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd h:mm a"
+            if let showtime = formatter.date(from: "\(showing.date) \(showing.time)") {
+                // 3 hours before — medium relevance
+                let threeHrsBefore = Calendar.current.date(byAdding: .hour, value: -3, to: showtime)!
+                if threeHrsBefore > Date() {
+                    entries.append(NextShowingEntry(
+                        date: threeHrsBefore,
+                        showing: showing,
+                        relevance: TimelineEntryRelevance(score: 50)
+                    ))
+                }
+                
+                // 1 hour before — high relevance
+                let oneHrBefore = Calendar.current.date(byAdding: .hour, value: -1, to: showtime)!
+                if oneHrBefore > Date() {
+                    entries.append(NextShowingEntry(
+                        date: oneHrBefore,
+                        showing: showing,
+                        relevance: TimelineEntryRelevance(score: 100)
+                    ))
+                }
+                
+                // 30 min before — max relevance
+                let thirtyMinBefore = Calendar.current.date(byAdding: .minute, value: -30, to: showtime)!
+                if thirtyMinBefore > Date() {
+                    entries.append(NextShowingEntry(
+                        date: thirtyMinBefore,
+                        showing: showing,
+                        relevance: TimelineEntryRelevance(score: 100)
+                    ))
+                }
+            }
+        }
+        
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: Date())!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
         completion(timeline)
     }
     
@@ -59,6 +101,7 @@ struct NextShowingProvider: TimelineProvider {
 struct NextShowingEntry: TimelineEntry {
     let date: Date
     let showing: NextShowing?
+    let relevance: TimelineEntryRelevance?
 }
 
 // MARK: - Widget View

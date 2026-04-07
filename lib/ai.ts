@@ -1,5 +1,5 @@
 import { ParsedTicketData } from './types';
-import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import { getApiKey } from './settings';
 
 const REQUEST_TIMEOUT_MS = 30000;
@@ -24,17 +24,6 @@ Rules:
 - confidence is 0-1 representing how sure you are about ALL extracted fields
 - If this is NOT a movie ticket, return {"error": "not_a_ticket", "confidence": 0}`;
 
-async function compressImage(imageUri: string): Promise<{ base64: string; mediaType: string }> {
-  console.log('[NDPass] Compressing image...');
-  const manipulated = await ImageManipulator.manipulateAsync(
-    imageUri,
-    [{ resize: { width: 1200 } }],
-    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-  );
-  console.log(`[NDPass] Compressed: ${Math.round((manipulated.base64?.length ?? 0) / 1024)}KB`);
-  return { base64: manipulated.base64!, mediaType: 'image/jpeg' };
-}
-
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -54,15 +43,23 @@ export async function parseTicketImage(
     onStatus?.(msg);
   };
 
-  // Get API key from local settings
   const apiKey = await getApiKey();
   if (!apiKey) {
     throw new Error('No API key configured.\n\nGo to Settings tab and add your Anthropic API key.');
   }
 
   log('Starting ticket scan...');
-  const { base64, mediaType } = await compressImage(imageUri);
-  log(`Image ready (${Math.round(base64.length / 1024)}KB)`);
+
+  // Read image as base64 directly — the image picker already outputs a reasonable size
+  log('Reading image...');
+  const base64 = await FileSystem.readAsStringAsync(imageUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const sizeKB = Math.round(base64.length / 1024);
+  log(`Image ready (${sizeKB}KB)`);
+
+  // Detect media type
+  const mediaType = 'image/jpeg';
 
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
