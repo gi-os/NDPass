@@ -2,15 +2,22 @@ export interface Ticket {
   id: string;
   movieTitle: string;
   theater: string;
-  date: string;        // ISO date string
+  date: string;        // ISO date YYYY-MM-DD
   time: string;        // e.g. "7:30 PM"
   seat?: string;
   price?: string;
   imageUri: string;    // local URI to the ticket photo
-  createdAt: string;   // ISO timestamp
-  notificationId?: string;
-  letterboxdLogged?: boolean;
+  createdAt: string;
+  notificationIds?: string; // comma-separated notification IDs
   notes?: string;
+  // TMDb data
+  posterPath?: string;
+  backdropPath?: string;
+  tmdbId?: number;
+  // Archive
+  archived: boolean;
+  // Grouping — tickets with the same groupKey are grouped
+  groupKey?: string;   // `${movieTitle}|${theater}|${date}|${time}`
 }
 
 export interface ParsedTicketData {
@@ -20,12 +27,16 @@ export interface ParsedTicketData {
   time: string;
   seat?: string;
   price?: string;
-  confidence: number;  // 0-1 how confident the AI is
+  confidence: number;
 }
 
-export interface TicketCollection {
+export interface TicketGroup {
+  groupKey: string;
+  movieTitle: string;
+  theater: string;
+  date: string;
+  time: string;
   tickets: Ticket[];
-  totalSpent: number;
-  totalTickets: number;
-  favoriteTheater: string | null;
+  posterPath?: string;
+  backdropPath?: string;
 }

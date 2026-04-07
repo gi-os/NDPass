@@ -1,8 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { parse, subHours, isBefore } from 'date-fns';
+import { parse, subHours, subMinutes, setHours, setMinutes, setSeconds, isBefore } from 'date-fns';
 
-// Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -14,16 +13,11 @@ Notifications.setNotificationHandler({
 export async function requestPermissions(): Promise<boolean> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
-
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
-
-  if (finalStatus !== 'granted') {
-    return false;
-  }
-
+  if (finalStatus !== 'granted') return false;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('reminders', {
       name: 'Show Reminders',
@@ -32,49 +26,83 @@ export async function requestPermissions(): Promise<boolean> {
       lightColor: '#E8D5B7',
     });
   }
-
   return true;
 }
 
 /**
- * Schedule a reminder 1 hour before showtime
- * Returns the notification ID for cancellation
+ * Schedule 3 reminders:
+ * 1. 9:00 AM on the day of the show
+ * 2. 2 hours before showtime
+ * 3. 30 minutes before showtime
+ *
+ * Returns comma-separated notification IDs
  */
-export async function scheduleReminder(
+export async function scheduleReminders(
   movieTitle: string,
   theater: string,
-  date: string,    // YYYY-MM-DD
-  time: string,    // h:mm AM/PM
+  date: string,
+  time: string,
 ): Promise<string | null> {
   const hasPermission = await requestPermissions();
   if (!hasPermission) return null;
 
-  // Parse the showtime
   const showtimeStr = `${date} ${time}`;
   const showtime = parse(showtimeStr, 'yyyy-MM-dd h:mm a', new Date());
-  const reminderTime = subHours(showtime, 1);
+  const now = new Date();
 
-  // Don't schedule if the reminder time is in the past
-  if (isBefore(reminderTime, new Date())) {
-    return null;
+  const ids: string[] = [];
+
+  // 1. 9:00 AM day-of
+  const dayOf = setSeconds(setMinutes(setHours(new Date(showtime), 9), 0), 0);
+  if (isBefore(now, dayOf)) {
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `🎬 ${movieTitle} tonight`,
+        body: `You've got tickets for ${theater} at ${time}`,
+        data: { movieTitle, theater, type: 'morning' },
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: dayOf },
+    });
+    ids.push(id);
   }
 
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '🎬 Showtime in 1 hour',
-      body: `${movieTitle} at ${theater}`,
-      data: { movieTitle, theater, date, time },
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: reminderTime,
-    },
-  });
+  // 2. 2 hours before
+  const twoHoursBefore = subHours(showtime, 2);
+  if (isBefore(now, twoHoursBefore)) {
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `🎬 ${movieTitle} in 2 hours`,
+        body: `Showtime at ${time} — ${theater}`,
+        data: { movieTitle, theater, type: '2hr' },
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: twoHoursBefore },
+    });
+    ids.push(id);
+  }
 
-  return id;
+  // 3. 30 minutes before
+  const thirtyMinBefore = subMinutes(showtime, 30);
+  if (isBefore(now, thirtyMinBefore)) {
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `🎬 ${movieTitle} in 30 min`,
+        body: `Head to ${theater} — showtime ${time}`,
+        data: { movieTitle, theater, type: '30min' },
+        sound: true,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: thirtyMinBefore },
+    });
+    ids.push(id);
+  }
+
+  return ids.length > 0 ? ids.join(',') : null;
 }
 
-export async function cancelReminder(notificationId: string): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(notificationId);
+export async function cancelReminders(notificationIds: string): Promise<void> {
+  const ids = notificationIds.split(',').filter(Boolean);
+  for (const id of ids) {
+    await Notifications.cancelScheduledNotificationAsync(id);
+  }
 }
