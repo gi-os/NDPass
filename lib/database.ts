@@ -8,7 +8,10 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
   if (!db) {
     db = await SQLite.openDatabaseAsync(DB_NAME);
 
-    // Create tables if fresh install
+    // Migrate: drop old table and recreate with correct schema
+    // This is safe during early development — no production data yet
+    await db.execAsync(`DROP TABLE IF EXISTS tickets`);
+
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS tickets (
         id TEXT PRIMARY KEY,
@@ -33,19 +36,6 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
         value TEXT NOT NULL
       );
     `);
-
-    // Migrate from old schema — add missing columns silently
-    const migrations = [
-      'ALTER TABLE tickets ADD COLUMN notificationIds TEXT',
-      'ALTER TABLE tickets ADD COLUMN posterPath TEXT',
-      'ALTER TABLE tickets ADD COLUMN backdropPath TEXT',
-      'ALTER TABLE tickets ADD COLUMN tmdbId INTEGER',
-      'ALTER TABLE tickets ADD COLUMN archived INTEGER DEFAULT 0',
-      'ALTER TABLE tickets ADD COLUMN groupKey TEXT',
-    ];
-    for (const sql of migrations) {
-      try { await db.execAsync(sql); } catch { /* column already exists, ignore */ }
-    }
 
     // Auto-archive past tickets
     await archivePastTickets();
