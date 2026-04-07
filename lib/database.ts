@@ -157,6 +157,12 @@ export async function getStats(): Promise<{
   totalSpent: number;
   favoriteTheater: string | null;
   thisMonth: number;
+  thisYear: number;
+  uniqueMovies: number;
+  uniqueTheaters: number;
+  avgPerMonth: number;
+  topTheaters: { theater: string; count: number }[];
+  recentMovies: { movieTitle: string; date: string }[];
 }> {
   const database = await getDB();
   const countRow = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM tickets');
@@ -171,11 +177,44 @@ export async function getStats(): Promise<{
   const monthRow = await database.getFirstAsync<{ count: number }>(
     'SELECT COUNT(*) as count FROM tickets WHERE date >= ?', [monthStart]
   );
+  const yearStart = `${now.getFullYear()}-01-01`;
+  const yearRow = await database.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM tickets WHERE date >= ?', [yearStart]
+  );
+  const uniqueMoviesRow = await database.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(DISTINCT movieTitle) as count FROM tickets'
+  );
+  const uniqueTheatersRow = await database.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(DISTINCT theater) as count FROM tickets'
+  );
+  const topTheaters = await database.getAllAsync<{ theater: string; count: number }>(
+    'SELECT theater, COUNT(*) as count FROM tickets GROUP BY theater ORDER BY count DESC LIMIT 5'
+  );
+  const recentMovies = await database.getAllAsync<{ movieTitle: string; date: string }>(
+    'SELECT DISTINCT movieTitle, date FROM tickets ORDER BY date DESC LIMIT 5'
+  );
+
+  const total = countRow?.count ?? 0;
+  // Avg per month: total tickets / months since first ticket
+  const firstRow = await database.getFirstAsync<{ date: string }>('SELECT date FROM tickets ORDER BY date ASC LIMIT 1');
+  let avgPerMonth = 0;
+  if (firstRow?.date) {
+    const firstDate = new Date(firstRow.date);
+    const monthsDiff = Math.max(1, (now.getFullYear() - firstDate.getFullYear()) * 12 + now.getMonth() - firstDate.getMonth() + 1);
+    avgPerMonth = Math.round((total / monthsDiff) * 10) / 10;
+  }
+
   return {
-    totalTickets: countRow?.count ?? 0,
+    totalTickets: total,
     totalSpent: spentRow?.total ?? 0,
     favoriteTheater: theaterRow?.theater ?? null,
     thisMonth: monthRow?.count ?? 0,
+    thisYear: yearRow?.count ?? 0,
+    uniqueMovies: uniqueMoviesRow?.count ?? 0,
+    uniqueTheaters: uniqueTheatersRow?.count ?? 0,
+    avgPerMonth,
+    topTheaters: topTheaters ?? [],
+    recentMovies: recentMovies ?? [],
   };
 }
 

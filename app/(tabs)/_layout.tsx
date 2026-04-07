@@ -21,12 +21,7 @@ export default function TabLayout() {
         tabBarBackground: () => (
           <View style={StyleSheet.absoluteFill}>
             <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-            {/* Glass border top highlight */}
-            <View style={{
-              position: 'absolute', top: 0, left: 24, right: 24,
-              height: 0.5,
-              backgroundColor: Colors.glassHighlight,
-            }} />
+            <View style={{ position: 'absolute', top: 0, left: 24, right: 24, height: 0.5, backgroundColor: Colors.glassHighlight }} />
           </View>
         ),
         tabBarActiveTintColor: Colors.amber,
@@ -37,7 +32,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'NDPass',
+          headerShown: false,
           tabBarLabel: 'STUBS',
           tabBarIcon: ({ color, size }) => <Ionicons name="ticket-outline" size={size} color={color} />,
         }}
@@ -45,7 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'CALENDAR',
+          title: 'Calendar',
           tabBarLabel: 'CALENDAR',
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
         }}
@@ -53,7 +48,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'SCAN',
+          title: 'Scan',
           tabBarLabel: 'SCAN',
           tabBarIcon: ({ color, size }) => <Ionicons name="camera-outline" size={size} color={color} />,
         }}
@@ -61,7 +56,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'STATS',
+          title: 'Stats',
           tabBarLabel: 'STATS',
           tabBarIcon: ({ color, size }) => <Ionicons name="analytics-outline" size={size} color={color} />,
         }}
@@ -69,7 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'SETTINGS',
+          title: 'Settings',
           tabBarLabel: 'SETTINGS',
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
