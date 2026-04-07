@@ -33,13 +33,17 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-/**
- * Parse a ticket image using Claude Vision.
- * @param base64 - base64-encoded image data (from image picker)
- * @param onStatus - callback for debug log messages
- */
+function detectMediaType(uri: string): string {
+  const lower = uri.toLowerCase();
+  if (lower.includes('.png')) return 'image/png';
+  if (lower.includes('.webp')) return 'image/webp';
+  if (lower.includes('.gif')) return 'image/gif';
+  return 'image/jpeg';
+}
+
 export async function parseTicketImage(
-  base64: string,
+  base64Data: string,
+  imageUri: string,
   onStatus?: (msg: string) => void,
 ): Promise<ParsedTicketData> {
   const log = (msg: string) => {
@@ -52,8 +56,19 @@ export async function parseTicketImage(
     throw new Error('No API key configured.\n\nGo to Settings tab and add your Anthropic API key.');
   }
 
+  // Clean base64 — strip data URI prefix if present
+  let base64 = base64Data;
+  if (base64.startsWith('data:')) {
+    base64 = base64.split(',')[1] ?? base64;
+  }
+
+  const mediaType = detectMediaType(imageUri);
   const sizeKB = Math.round(base64.length / 1024);
-  log(`Image ready (${sizeKB}KB base64)`);
+  log(`Image: ${sizeKB}KB, type: ${mediaType}`);
+
+  if (base64.length < 100) {
+    throw new Error('Image data appears empty or corrupted. Try again.');
+  }
 
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -78,7 +93,11 @@ export async function parseTicketImage(
                 content: [
                   {
                     type: 'image',
-                    source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+                    source: {
+                      type: 'base64',
+                      media_type: mediaType,
+                      data: base64,
+                    },
                   },
                   { type: 'text', text: PARSE_PROMPT },
                 ],
@@ -91,11 +110,11 @@ export async function parseTicketImage(
 
       if (!response.ok) {
         const err = await response.text();
-        log(`API error: ${err.slice(0, 200)}`);
+        log(`API error: ${err.slice(0, 300)}`);
         if (response.status === 401) {
           throw new Error('Invalid API key. Check your key in Settings.');
         }
-        throw new Error(`API error ${response.status}: ${err.slice(0, 100)}`);
+        throw new Error(`API error ${response.status}: ${err.slice(0, 150)}`);
       }
 
       const data = await response.json();

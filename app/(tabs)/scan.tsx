@@ -79,7 +79,7 @@ export default function ScanScreen() {
     }
 
     try {
-      const data = await parseTicketImage(base64, addLog);
+      const data = await parseTicketImage(base64, uri, addLog);
       setParsed(data);
       setMovieTitle(data.movieTitle);
       setTheater(data.theater);
