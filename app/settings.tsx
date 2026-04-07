@@ -109,20 +109,8 @@ export default function SettingsScreen() {
               selectionColor={Colors.cream}
               autoCapitalize="none"
               autoCorrect={false}
-              secureTextEntry={!showKey}
+              multiline
             />
-            <View style={styles.inputActions}>
-              <TouchableOpacity
-                style={styles.smallBtn}
-                onPress={() => setShowKey(!showKey)}
-              >
-                <Ionicons
-                  name={showKey ? 'eye-off-outline' : 'eye-outline'}
-                  size={16}
-                  color={Colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
             <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
               <Ionicons name="key" size={18} color={Colors.bg} />
               <Text style={styles.saveBtnText}>Save Key</Text>
