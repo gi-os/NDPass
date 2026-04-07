@@ -59,49 +59,53 @@ export default function HomeScreen() {
 
   const renderTicket = ({ item }: { item: Ticket }) => (
     <View style={styles.ticketCard}>
-      {/* Ticket image thumbnail */}
-      <Image source={{ uri: item.imageUri }} style={styles.ticketImage} />
+      {/* Full-width ticket image */}
+      <View style={styles.ticketImageContainer}>
+        <Image source={{ uri: item.imageUri }} style={styles.ticketImage} />
+      </View>
 
-      {/* Ticket info */}
-      <View style={styles.ticketInfo}>
-        <Text style={styles.movieTitle} numberOfLines={1}>
-          {item.movieTitle}
-        </Text>
-        <Text style={styles.theaterName} numberOfLines={1}>
-          {item.theater}
-        </Text>
+      {/* Info + actions row */}
+      <View style={styles.ticketBottom}>
+        <View style={styles.ticketInfo}>
+          <Text style={styles.movieTitle} numberOfLines={1}>
+            {item.movieTitle}
+          </Text>
+          <Text style={styles.theaterName} numberOfLines={1}>
+            {item.theater}
+          </Text>
 
-        <View style={styles.ticketMeta}>
-          <Text style={styles.metaText}>{formatDisplayDate(item.date)}</Text>
-          <Text style={styles.metaDot}>·</Text>
-          <Text style={styles.metaText}>{item.time}</Text>
-          {item.seat && (
-            <>
-              <Text style={styles.metaDot}>·</Text>
-              <Text style={styles.metaText}>{item.seat}</Text>
-            </>
+          <View style={styles.ticketMeta}>
+            <Text style={styles.metaText}>{formatDisplayDate(item.date)}</Text>
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.metaText}>{item.time}</Text>
+            {item.seat && (
+              <>
+                <Text style={styles.metaDot}>·</Text>
+                <Text style={styles.metaText}>{item.seat}</Text>
+              </>
+            )}
+          </View>
+
+          {item.price && (
+            <Text style={styles.priceText}>{formatPrice(item.price)}</Text>
           )}
         </View>
 
-        {item.price && (
-          <Text style={styles.priceText}>{formatPrice(item.price)}</Text>
-        )}
-      </View>
-
-      {/* Actions */}
-      <View style={styles.ticketActions}>
-        <TouchableOpacity
-          onPress={() => openLetterboxd(item.movieTitle)}
-          style={styles.actionBtn}
-        >
-          <Ionicons name="film-outline" size={18} color={Colors.amber} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleDelete(item)}
-          style={styles.actionBtn}
-        >
-          <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
-        </TouchableOpacity>
+        {/* Actions */}
+        <View style={styles.ticketActions}>
+          <TouchableOpacity
+            onPress={() => openLetterboxd(item.movieTitle)}
+            style={styles.actionBtn}
+          >
+            <Ionicons name="film-outline" size={18} color={Colors.amber} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDelete(item)}
+            style={styles.actionBtn}
+          >
+            <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -171,22 +175,28 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   ticketCard: {
-    flexDirection: 'row',
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.card,
-    padding: Spacing.md,
+    overflow: 'hidden',
     borderWidth: 0.5,
     borderColor: Colors.border,
   },
-  ticketImage: {
-    width: 56,
-    height: 80,
-    borderRadius: Radius.sm,
+  ticketImageContainer: {
+    width: '100%',
+    height: 160,
     backgroundColor: Colors.bgElevated,
+  },
+  ticketImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  ticketBottom: {
+    flexDirection: 'row',
+    padding: Spacing.md,
   },
   ticketInfo: {
     flex: 1,
-    marginLeft: Spacing.md,
     justifyContent: 'center',
   },
   movieTitle: {

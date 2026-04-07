@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,8 @@ export default function ScanScreen() {
   const [state, setState] = useState<ScanState>('idle');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedTicketData | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const logScrollRef = useRef<ScrollView>(null);
 
   // Editable fields
   const [movieTitle, setMovieTitle] = useState('');
@@ -38,6 +40,16 @@ export default function ScanScreen() {
   const [time, setTime] = useState('');
   const [seat, setSeat] = useState('');
   const [price, setPrice] = useState('');
+
+  const addLog = (msg: string) => {
+    const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs(prev => [...prev, `${ts} ${msg}`]);
+  };
+
+  // Auto-scroll log
+  useEffect(() => {
+    logScrollRef.current?.scrollToEnd({ animated: true });
+  }, [logs]);
 
   const pickImage = async (useCamera: boolean) => {
     const permission = useCamera
@@ -61,9 +73,11 @@ export default function ScanScreen() {
     const uri = result.assets[0].uri;
     setImageUri(uri);
     setState('loading');
+    setLogs([]);
+    addLog('Image selected');
 
     try {
-      const data = await parseTicketImage(uri);
+      const data = await parseTicketImage(uri, addLog);
       setParsed(data);
       setMovieTitle(data.movieTitle);
       setTheater(data.theater);
@@ -71,8 +85,10 @@ export default function ScanScreen() {
       setTime(data.time);
       setSeat(data.seat ?? '');
       setPrice(data.price ?? '');
+      addLog(`✓ Parsed: ${data.movieTitle} @ ${data.theater}`);
       setState('review');
     } catch (err: any) {
+      addLog(`✗ Error: ${err.message}`);
       Alert.alert('Parse Error', err.message ?? 'Failed to read ticket');
       setState('idle');
     }
@@ -85,10 +101,11 @@ export default function ScanScreen() {
     }
 
     setState('saving');
+    addLog('Saving stub...');
 
     try {
-      // Schedule notification
       const notificationId = await scheduleReminder(movieTitle, theater, date, time);
+      addLog(notificationId ? 'Reminder scheduled (1hr before)' : 'No reminder (showtime passed)');
 
       const ticket = {
         id: generateId(),
@@ -104,12 +121,13 @@ export default function ScanScreen() {
       };
 
       await insertTicket(ticket);
+      addLog('✓ Saved to collection');
 
       Alert.alert(
         '🎬 Stub saved!',
         notificationId
-          ? `Reminder set for 1hr before showtime.`
-          : `Showtime already passed — no reminder set.`,
+          ? 'Reminder set for 1hr before showtime.'
+          : 'Showtime already passed — no reminder set.',
         [
           {
             text: 'Log on Letterboxd',
@@ -125,6 +143,7 @@ export default function ScanScreen() {
         ]
       );
     } catch (err: any) {
+      addLog(`✗ Save error: ${err.message}`);
       Alert.alert('Save Error', err.message);
       setState('review');
     }
@@ -140,9 +159,38 @@ export default function ScanScreen() {
     setTime('');
     setSeat('');
     setPrice('');
+    setLogs([]);
   };
 
-  // --- IDLE: pick photo ---
+  // ── Debug Terminal Component ──────────────────────────────
+  const DebugTerminal = () => {
+    if (logs.length === 0) return null;
+    return (
+      <View style={styles.terminal}>
+        <View style={styles.terminalHeader}>
+          <View style={styles.terminalDot} />
+          <Text style={styles.terminalTitle}>ndpass — debug</Text>
+        </View>
+        <ScrollView
+          ref={logScrollRef}
+          style={styles.terminalBody}
+          contentContainerStyle={styles.terminalContent}
+        >
+          {logs.map((log, i) => (
+            <Text key={i} style={[
+              styles.terminalLine,
+              log.includes('✗') && styles.terminalError,
+              log.includes('✓') && styles.terminalSuccess,
+            ]}>
+              {log}
+            </Text>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // ── IDLE: pick photo ──────────────────────────────────────
   if (state === 'idle') {
     return (
       <View style={styles.container}>
@@ -172,27 +220,30 @@ export default function ScanScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          <DebugTerminal />
         </View>
       </View>
     );
   }
 
-  // --- LOADING: parsing ---
+  // ── LOADING: parsing ──────────────────────────────────────
   if (state === 'loading') {
     return (
       <View style={styles.container}>
-        <View style={styles.loadingContent}>
+        <ScrollView contentContainerStyle={styles.loadingContent}>
           {imageUri && (
             <Image source={{ uri: imageUri }} style={styles.previewImage} />
           )}
           <ActivityIndicator size="large" color={Colors.cream} style={{ marginTop: Spacing.lg }} />
           <Text style={styles.loadingText}>Reading your ticket...</Text>
-        </View>
+          <DebugTerminal />
+        </ScrollView>
       </View>
     );
   }
 
-  // --- REVIEW: edit parsed data ---
+  // ── REVIEW: edit parsed data ──────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -203,8 +254,15 @@ export default function ScanScreen() {
         contentContainerStyle={styles.reviewContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Ticket image — large preview */}
         {imageUri && (
-          <Image source={{ uri: imageUri }} style={styles.reviewImage} />
+          <View style={styles.ticketPreviewContainer}>
+            <Image source={{ uri: imageUri }} style={styles.ticketPreview} />
+            <View style={styles.ticketPreviewOverlay}>
+              <Ionicons name="ticket" size={16} color={Colors.cream} />
+              <Text style={styles.ticketPreviewLabel}>SCANNED STUB</Text>
+            </View>
+          </View>
         )}
 
         {parsed && parsed.confidence < 0.7 && (
@@ -249,12 +307,14 @@ export default function ScanScreen() {
             <Text style={styles.cancelButtonText}>Start Over</Text>
           </TouchableOpacity>
         </View>
+
+        <DebugTerminal />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// --- Field Input Component ---
+// ── Field Input Component ───────────────────────────────────
 function FieldInput({
   label,
   value,
@@ -283,6 +343,7 @@ function FieldInput({
   );
 }
 
+// ── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -341,16 +402,18 @@ const styles = StyleSheet.create({
 
   // Loading
   loadingContent: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
   },
   previewImage: {
-    width: 200,
-    height: 280,
+    width: 240,
+    height: 160,
     borderRadius: Radius.lg,
     backgroundColor: Colors.bgElevated,
+    resizeMode: 'contain',
   },
   loadingText: {
     fontFamily: Typography.mono,
@@ -359,18 +422,45 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 
+  // Ticket preview (review screen)
+  ticketPreviewContainer: {
+    position: 'relative',
+    marginBottom: Spacing.md,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+  },
+  ticketPreview: {
+    width: '100%',
+    height: 220,
+    resizeMode: 'contain',
+    backgroundColor: Colors.bgCard,
+  },
+  ticketPreviewOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: 'rgba(10, 10, 10, 0.85)',
+  },
+  ticketPreviewLabel: {
+    fontFamily: Typography.mono,
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.cream,
+    letterSpacing: 2,
+  },
+
   // Review
   reviewContent: {
     padding: Spacing.md,
     paddingBottom: 120,
-  },
-  reviewImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.bgElevated,
-    marginBottom: Spacing.md,
-    resizeMode: 'cover',
   },
   warningBanner: {
     flexDirection: 'row',
@@ -452,5 +542,56 @@ const styles = StyleSheet.create({
     fontFamily: Typography.mono,
     fontSize: 14,
     color: Colors.textSecondary,
+  },
+
+  // Debug Terminal
+  terminal: {
+    marginTop: Spacing.lg,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: Colors.borderLight,
+    width: '100%',
+  },
+  terminalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.bgElevated,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  terminalDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.green,
+  },
+  terminalTitle: {
+    fontFamily: Typography.mono,
+    fontSize: 10,
+    color: Colors.textMuted,
+    letterSpacing: 1,
+  },
+  terminalBody: {
+    backgroundColor: '#0C0C0C',
+    maxHeight: 160,
+  },
+  terminalContent: {
+    padding: Spacing.sm,
+  },
+  terminalLine: {
+    fontFamily: Typography.mono,
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  terminalError: {
+    color: Colors.red,
+  },
+  terminalSuccess: {
+    color: Colors.green,
   },
 });
