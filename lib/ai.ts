@@ -1,5 +1,4 @@
 import { ParsedTicketData } from './types';
-import * as FileSystem from 'expo-file-system';
 import { getApiKey } from './settings';
 
 const REQUEST_TIMEOUT_MS = 30000;
@@ -34,8 +33,13 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
+/**
+ * Parse a ticket image using Claude Vision.
+ * @param base64 - base64-encoded image data (from image picker)
+ * @param onStatus - callback for debug log messages
+ */
 export async function parseTicketImage(
-  imageUri: string,
+  base64: string,
   onStatus?: (msg: string) => void,
 ): Promise<ParsedTicketData> {
   const log = (msg: string) => {
@@ -48,18 +52,8 @@ export async function parseTicketImage(
     throw new Error('No API key configured.\n\nGo to Settings tab and add your Anthropic API key.');
   }
 
-  log('Starting ticket scan...');
-
-  // Read image as base64 directly — the image picker already outputs a reasonable size
-  log('Reading image...');
-  const base64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
   const sizeKB = Math.round(base64.length / 1024);
-  log(`Image ready (${sizeKB}KB)`);
-
-  // Detect media type
-  const mediaType = 'image/jpeg';
+  log(`Image ready (${sizeKB}KB base64)`);
 
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -84,7 +78,7 @@ export async function parseTicketImage(
                 content: [
                   {
                     type: 'image',
-                    source: { type: 'base64', media_type: mediaType, data: base64 },
+                    source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
                   },
                   { type: 'text', text: PARSE_PROMPT },
                 ],
