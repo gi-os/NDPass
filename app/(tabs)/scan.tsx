@@ -11,6 +11,7 @@ import { parseTicketImage } from '@/lib/ai';
 import { insertTicket } from '@/lib/database';
 import { scheduleReminders } from '@/lib/notifications';
 import { searchMovie, getPosterUrl } from '@/lib/tmdb';
+import { updateWidget } from '@/lib/widget';
 import { generateId } from '@/lib/utils';
 import { ParsedTicketData } from '@/lib/types';
 
@@ -117,6 +118,7 @@ export default function ScanScreen() {
         posterPath, backdropPath, tmdbId,
         archived: false,
       });
+      await updateWidget();
       addLog('✓ Saved!');
 
       Alert.alert('🎬 Stub saved!', notificationIds

@@ -35,7 +35,8 @@
     "react-native-screens": "~4.4.0",
     "react-native-gesture-handler": "~2.20.0",
     "@expo/vector-icons": "^14.0.0",
-    "date-fns": "^3.6.0"
+    "date-fns": "^3.6.0",
+    "react-native-shared-group-preferences": "^1.1.23"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
