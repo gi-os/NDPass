@@ -157,7 +157,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  listContent: { padding: Spacing.md, paddingBottom: 120 },
+  listContent: { padding: Spacing.md, paddingTop: Spacing.sm, paddingBottom: 120 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   emptyState: { alignItems: 'center', paddingHorizontal: Spacing.xl },
@@ -172,8 +172,8 @@ const styles = StyleSheet.create({
 
   // Toggle
   toggleRow: {
-    flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs, gap: Spacing.sm,
+    flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm, gap: Spacing.sm,
   },
   toggleBtn: {
     paddingVertical: 8, paddingHorizontal: Spacing.lg,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
 
   // Movie card
   movieCard: {
-    height: 200,
+    height: 220,
     borderRadius: Radius.card,
     overflow: 'hidden',
     position: 'relative',

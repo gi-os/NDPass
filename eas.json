@@ -11,14 +11,24 @@
         "simulator": true
       }
     },
-    "preview": {
+    "device": {
+      "developmentClient": true,
       "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "preview": {
+      "distribution": "store",
       "ios": {
         "buildConfiguration": "Release"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {
