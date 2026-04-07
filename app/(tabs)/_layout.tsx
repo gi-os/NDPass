@@ -8,17 +8,17 @@ export default function TabLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: Colors.bg, shadowColor: 'transparent', elevation: 0 },
         headerTintColor: Colors.cream,
-        headerTitleStyle: { fontFamily: 'Courier', fontWeight: '700', fontSize: 18, letterSpacing: 1 },
+        headerTitleStyle: { fontFamily: 'Courier', fontWeight: '700', fontSize: 18, letterSpacing: 0.5 },
         tabBarStyle: {
-          backgroundColor: Colors.bg,
-          borderTopColor: Colors.border,
+          backgroundColor: 'rgba(8, 8, 16, 0.85)',
+          borderTopColor: Colors.glassBorder,
           borderTopWidth: 0.5,
           paddingBottom: 4,
           height: 88,
         },
-        tabBarActiveTintColor: Colors.cream,
+        tabBarActiveTintColor: Colors.amber,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontFamily: 'Courier', fontSize: 10, letterSpacing: 0.5 },
+        tabBarLabelStyle: { fontFamily: 'Courier', fontSize: 9, letterSpacing: 0.8 },
       }}
     >
       <Tabs.Screen
@@ -27,6 +27,14 @@ export default function TabLayout() {
           title: 'NDPass',
           tabBarLabel: 'STUBS',
           tabBarIcon: ({ color, size }) => <Ionicons name="ticket-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'CALENDAR',
+          tabBarLabel: 'CALENDAR',
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
