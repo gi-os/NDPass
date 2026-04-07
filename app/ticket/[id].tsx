@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, Image, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Dimensions, Modal, SafeAreaView, Alert,
+  TouchableOpacity, Dimensions, Modal, SafeAreaView, Alert, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Glass, Spacing, Radius, Typography } from '@/constants/theme';
 import { getTicketById, getDB, updateTicket } from '@/lib/database';
-import { getPosterUrl } from '@/lib/tmdb';
+import { getPosterUrl, searchMovie } from '@/lib/tmdb';
 import { formatDisplayDate, formatPrice } from '@/lib/utils';
 import { Ticket } from '@/lib/types';
 import GlassCard from '@/components/GlassCard';
@@ -67,13 +67,16 @@ export default function TicketDetail() {
     setEditing(false);
   };
 
+  const [searchingPoster, setSearchingPoster] = useState(false);
+
   const saveEdits = async () => {
     if (!ticket) return;
     if (!editTitle || !editTheater || !editDate || !editTime) {
       Alert.alert('Missing info', 'Title, theater, date, and time are required.');
       return;
     }
-    await updateTicket({
+
+    const updates: any = {
       id: ticket.id,
       movieTitle: editTitle.trim(),
       theater: editTheater.trim(),
@@ -81,7 +84,21 @@ export default function TicketDetail() {
       time: editTime.trim(),
       seat: editSeat.trim() || undefined,
       price: editPrice.trim() || undefined,
-    });
+    };
+
+    // Re-search poster if title changed
+    if (editTitle.trim() !== ticket.movieTitle) {
+      setSearchingPoster(true);
+      const movie = await searchMovie(editTitle.trim());
+      if (movie?.posterPath) {
+        updates.posterPath = movie.posterPath;
+        updates.backdropPath = movie.backdropPath;
+        updates.tmdbId = movie.id;
+      }
+      setSearchingPoster(false);
+    }
+
+    await updateTicket(updates);
     setEditing(false);
     await loadTicket();
   };
@@ -121,14 +138,33 @@ export default function TicketDetail() {
                 <EditField label="PRICE" value={editPrice} onChange={setEditPrice} placeholder="$16.00" half />
               </View>
               <View style={styles.editActions}>
-                <TouchableOpacity style={styles.saveEditBtn} onPress={saveEdits}>
-                  <Ionicons name="checkmark" size={18} color={Colors.bg} />
-                  <Text style={styles.saveEditText}>Save</Text>
+                <TouchableOpacity style={styles.saveEditBtn} onPress={saveEdits} disabled={searchingPoster}>
+                  {searchingPoster ? (
+                    <><ActivityIndicator size="small" color={Colors.bg} /><Text style={styles.saveEditText}>Searching poster...</Text></>
+                  ) : (
+                    <><Ionicons name="checkmark" size={18} color={Colors.bg} /><Text style={styles.saveEditText}>Save</Text></>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cancelEditBtn} onPress={cancelEditing}>
                   <Text style={styles.cancelEditText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity style={styles.searchPosterBtn} onPress={async () => {
+                if (!editTitle.trim()) return;
+                setSearchingPoster(true);
+                const movie = await searchMovie(editTitle.trim());
+                setSearchingPoster(false);
+                if (movie?.posterPath) {
+                  await updateTicket({ id: ticket!.id, posterPath: movie.posterPath, backdropPath: movie.backdropPath ?? undefined, tmdbId: movie.id });
+                  await loadTicket();
+                  Alert.alert('✓ Poster found', movie.title);
+                } else {
+                  Alert.alert('No poster found', 'Try a different title spelling.');
+                }
+              }}>
+                <Ionicons name="image-outline" size={16} color={Colors.amber} />
+                <Text style={styles.searchPosterText}>Search poster for "{editTitle}"</Text>
+              </TouchableOpacity>
             </>
           ) : (
             <>
@@ -280,6 +316,8 @@ const styles = StyleSheet.create({
   saveEditText: { fontFamily: Typography.mono, fontSize: 14, fontWeight: '700', color: Colors.bg },
   cancelEditBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: Radius.md, ...Glass.subtle },
   cancelEditText: { fontFamily: Typography.mono, fontSize: 14, color: Colors.textSecondary },
+  searchPosterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md, paddingVertical: 10, paddingHorizontal: Spacing.md, borderRadius: Radius.md, ...Glass.subtle, alignSelf: 'flex-start' },
+  searchPosterText: { fontFamily: Typography.mono, fontSize: 12, color: Colors.amber },
 
   // Details card
   detailsCard: { marginHorizontal: Spacing.md, padding: Spacing.lg, marginBottom: Spacing.lg },
