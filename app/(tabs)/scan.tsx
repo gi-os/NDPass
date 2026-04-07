@@ -187,6 +187,9 @@ export default function ScanScreen() {
           {imageUri && <Image source={{ uri: imageUri }} style={styles.previewImage} />}
           <ActivityIndicator size="large" color={Colors.cream} style={{ marginTop: Spacing.lg }} />
           <Text style={styles.loadingText}>Reading your ticket...</Text>
+          <TouchableOpacity style={styles.cancelButton} onPress={resetForm}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
           <DebugTerminal />
         </ScrollView>
       </View>
