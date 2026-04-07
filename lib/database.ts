@@ -1,16 +1,12 @@
 import * as SQLite from 'expo-sqlite';
 import { Ticket, TicketGroup } from './types';
 
-const DB_NAME = 'ndpass.db';
+const DB_NAME = 'ndpass_v2.db';
 let db: SQLite.SQLiteDatabase | null = null;
 
 export async function getDB(): Promise<SQLite.SQLiteDatabase> {
   if (!db) {
     db = await SQLite.openDatabaseAsync(DB_NAME);
-
-    // Migrate: drop old table and recreate with correct schema
-    // This is safe during early development — no production data yet
-    await db.execAsync(`DROP TABLE IF EXISTS tickets`);
 
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS tickets (
