@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, Image, StyleSheet, ScrollView,
-  TouchableOpacity, Dimensions, Modal,
+  TouchableOpacity, Dimensions, Modal, SafeAreaView,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radius, Typography } from '@/constants/theme';
+import { Colors, Glass, Spacing, Radius, Typography } from '@/constants/theme';
 import { getTicketById, getDB } from '@/lib/database';
 import { getPosterUrl } from '@/lib/tmdb';
 import { formatDisplayDate, formatPrice } from '@/lib/utils';
 import { Ticket } from '@/lib/types';
+import GlassCard from '@/components/GlassCard';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TicketDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [groupTickets, setGroupTickets] = useState<Ticket[]>([]);
   const [fullscreen, setFullscreen] = useState(false);
@@ -46,47 +46,79 @@ export default function TicketDetail() {
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Poster header */}
-        {posterUri && (
+        {/* Safe area spacer for transparent header */}
+        <View style={{ height: 100 }} />
+
+        {/* Poster */}
+        {posterUri ? (
           <Image source={{ uri: posterUri }} style={styles.poster} />
+        ) : (
+          <View style={styles.posterPlaceholder}>
+            <Ionicons name="film-outline" size={48} color={Colors.textMuted} />
+          </View>
         )}
 
         {/* Movie info */}
         <View style={styles.infoSection}>
           <Text style={styles.title}>{ticket.movieTitle}</Text>
           <Text style={styles.theater}>{ticket.theater}</Text>
+
           <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
-            <Text style={styles.metaText}>{formatDisplayDate(ticket.date)}</Text>
-            <Ionicons name="time-outline" size={14} color={Colors.textSecondary} />
-            <Text style={styles.metaText}>{ticket.time}</Text>
+            <View style={styles.metaChip}>
+              <Ionicons name="calendar-outline" size={13} color={Colors.amber} />
+              <Text style={styles.metaText}>{formatDisplayDate(ticket.date)}</Text>
+            </View>
+            <View style={styles.metaChip}>
+              <Ionicons name="time-outline" size={13} color={Colors.amber} />
+              <Text style={styles.metaText}>{ticket.time}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Tickets in this group */}
+        {/* Details card */}
+        <GlassCard style={styles.detailsCard}>
+          <Text style={styles.detailsTitle}>DETAILS</Text>
+          <DetailRow label="Theater" value={ticket.theater} />
+          <DetailRow label="Date" value={formatDisplayDate(ticket.date)} />
+          <DetailRow label="Time" value={ticket.time} />
+          {ticket.seat && <DetailRow label="Seat" value={ticket.seat} />}
+          {ticket.price && <DetailRow label="Price" value={formatPrice(ticket.price)} />}
+          <DetailRow label="Scanned" value={new Date(ticket.createdAt).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+          })} />
+          {ticket.archived && (
+            <View style={styles.archivedBadge}>
+              <Ionicons name="archive-outline" size={12} color={Colors.textSecondary} />
+              <Text style={styles.archivedText}>Archived</Text>
+            </View>
+          )}
+        </GlassCard>
+
+        {/* Tickets */}
         <Text style={styles.sectionLabel}>
           {allTickets.length > 1 ? `TICKETS (${allTickets.length})` : 'TICKET'}
         </Text>
+        <Text style={styles.sectionHint}>Tap to show at box office</Text>
 
         {allTickets.map((t, idx) => (
           <TouchableOpacity
             key={t.id}
-            style={styles.ticketCard}
             activeOpacity={0.85}
             onPress={() => { setFullscreenIdx(idx); setFullscreen(true); }}
           >
-            <Image source={{ uri: t.imageUri }} style={styles.ticketThumb} />
-            <View style={styles.ticketInfo}>
-              {t.seat && <Text style={styles.ticketSeat}>Seat {t.seat}</Text>}
-              {t.price && <Text style={styles.ticketPrice}>{formatPrice(t.price)}</Text>}
-              <Text style={styles.tapHint}>Tap to show at box office</Text>
-            </View>
-            <Ionicons name="expand-outline" size={20} color={Colors.textMuted} />
+            <GlassCard style={styles.ticketCard}>
+              <Image source={{ uri: t.imageUri }} style={styles.ticketThumb} />
+              <View style={styles.ticketInfo}>
+                {t.seat && <Text style={styles.ticketSeat}>Seat {t.seat}</Text>}
+                {t.price && <Text style={styles.ticketPrice}>{formatPrice(t.price)}</Text>}
+              </View>
+              <Ionicons name="expand-outline" size={20} color={Colors.textMuted} />
+            </GlassCard>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Fullscreen ticket modal — show to box office */}
+      {/* Fullscreen ticket modal */}
       <Modal visible={fullscreen} animationType="fade" statusBarTranslucent>
         <View style={styles.fullscreenContainer}>
           <Image
@@ -94,39 +126,38 @@ export default function TicketDetail() {
             style={styles.fullscreenImage}
             resizeMode="contain"
           />
-
-          {/* Navigation for multiple tickets */}
           {allTickets.length > 1 && (
             <View style={styles.fullscreenNav}>
-              <TouchableOpacity
-                style={styles.navBtn}
+              <TouchableOpacity style={styles.navBtn}
                 onPress={() => setFullscreenIdx(Math.max(0, fullscreenIdx - 1))}
-                disabled={fullscreenIdx === 0}
-              >
+                disabled={fullscreenIdx === 0}>
                 <Ionicons name="chevron-back" size={28} color={fullscreenIdx === 0 ? Colors.textMuted : '#fff'} />
               </TouchableOpacity>
-              <Text style={styles.navCounter}>
-                {fullscreenIdx + 1} / {allTickets.length}
-              </Text>
-              <TouchableOpacity
-                style={styles.navBtn}
+              <Text style={styles.navCounter}>{fullscreenIdx + 1} / {allTickets.length}</Text>
+              <TouchableOpacity style={styles.navBtn}
                 onPress={() => setFullscreenIdx(Math.min(allTickets.length - 1, fullscreenIdx + 1))}
-                disabled={fullscreenIdx === allTickets.length - 1}
-              >
+                disabled={fullscreenIdx === allTickets.length - 1}>
                 <Ionicons name="chevron-forward" size={28} color={fullscreenIdx === allTickets.length - 1 ? Colors.textMuted : '#fff'} />
               </TouchableOpacity>
             </View>
           )}
-
-          <TouchableOpacity
-            style={styles.fullscreenClose}
-            onPress={() => setFullscreen(false)}
-          >
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
+          <SafeAreaView style={styles.fullscreenCloseArea}>
+            <TouchableOpacity style={styles.fullscreenClose} onPress={() => setFullscreen(false)}>
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </SafeAreaView>
         </View>
       </Modal>
     </>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -135,38 +166,42 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 120 },
   loadingText: { fontFamily: Typography.mono, color: Colors.textMuted, textAlign: 'center', marginTop: 100 },
 
-  // Poster
-  poster: { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.2, resizeMode: 'cover' },
+  poster: { width: SCREEN_WIDTH - 32, height: (SCREEN_WIDTH - 32) * 1.3, resizeMode: 'cover', borderRadius: Radius.xl, alignSelf: 'center', marginBottom: Spacing.lg },
+  posterPlaceholder: { width: SCREEN_WIDTH - 32, height: 200, borderRadius: Radius.xl, alignSelf: 'center', marginBottom: Spacing.lg, justifyContent: 'center', alignItems: 'center', ...Glass.panel },
 
-  // Info
-  infoSection: { padding: Spacing.lg },
-  title: { fontFamily: Typography.mono, fontSize: 26, fontWeight: '700', color: Colors.cream },
-  theater: { fontFamily: Typography.mono, fontSize: 15, color: Colors.amber, marginTop: 4 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md },
-  metaText: { fontFamily: Typography.mono, fontSize: 13, color: Colors.textSecondary, marginRight: Spacing.md },
+  infoSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
+  title: { fontFamily: Typography.body, fontSize: 28, fontWeight: '700', color: Colors.cream, letterSpacing: -0.5 },
+  theater: { fontFamily: Typography.mono, fontSize: 14, color: Colors.amber, marginTop: 4, letterSpacing: 0.3 },
+  metaRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
+  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.pill, ...Glass.subtle },
+  metaText: { fontFamily: Typography.mono, fontSize: 12, color: Colors.textSecondary },
+
+  // Details card
+  detailsCard: { marginHorizontal: Spacing.md, padding: Spacing.lg, marginBottom: Spacing.lg },
+  detailsTitle: { fontFamily: Typography.mono, fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 2, marginBottom: Spacing.md },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  detailLabel: { fontFamily: Typography.mono, fontSize: 13, color: Colors.textMuted },
+  detailValue: { fontFamily: Typography.mono, fontSize: 13, color: Colors.cream },
+  archivedBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md },
+  archivedText: { fontFamily: Typography.mono, fontSize: 11, color: Colors.textSecondary },
 
   // Section
-  sectionLabel: { fontFamily: Typography.mono, fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 2, paddingHorizontal: Spacing.lg, marginTop: Spacing.md, marginBottom: Spacing.sm },
+  sectionLabel: { fontFamily: Typography.mono, fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 2, paddingHorizontal: Spacing.lg, marginBottom: 2 },
+  sectionHint: { fontFamily: Typography.mono, fontSize: 10, color: Colors.textMuted, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
 
   // Ticket card
-  ticketCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.bgCard, marginHorizontal: Spacing.md,
-    marginBottom: Spacing.sm, borderRadius: Radius.card,
-    padding: Spacing.md, borderWidth: 0.5, borderColor: Colors.border,
-    gap: Spacing.md,
-  },
-  ticketThumb: { width: 80, height: 56, borderRadius: Radius.sm, backgroundColor: Colors.bgElevated, resizeMode: 'contain' },
+  ticketCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.md, marginBottom: Spacing.sm, padding: Spacing.md, gap: Spacing.md },
+  ticketThumb: { width: 90, height: 60, borderRadius: Radius.sm, backgroundColor: Colors.glass, resizeMode: 'contain' },
   ticketInfo: { flex: 1 },
   ticketSeat: { fontFamily: Typography.mono, fontSize: 14, fontWeight: '700', color: Colors.cream },
   ticketPrice: { fontFamily: Typography.mono, fontSize: 13, color: Colors.green, marginTop: 2 },
-  tapHint: { fontFamily: Typography.mono, fontSize: 10, color: Colors.textMuted, marginTop: 4 },
 
   // Fullscreen
   fullscreenContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
   fullscreenImage: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 },
-  fullscreenClose: { position: 'absolute', top: 60, right: 20, padding: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20 },
-  fullscreenNav: { position: 'absolute', bottom: 60, flexDirection: 'row', alignItems: 'center', gap: 20 },
+  fullscreenCloseArea: { position: 'absolute', top: 0, right: 0 },
+  fullscreenClose: { padding: 16, margin: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20 },
+  fullscreenNav: { position: 'absolute', bottom: 80, flexDirection: 'row', alignItems: 'center', gap: 20 },
   navBtn: { padding: 10 },
   navCounter: { fontFamily: Typography.mono, fontSize: 14, color: '#fff' },
 });

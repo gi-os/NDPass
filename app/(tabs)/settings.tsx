@@ -1,301 +1,167 @@
 import { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  Linking,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ScrollView, Linking,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radius, Typography } from '@/constants/theme';
-import { getApiKey, setApiKey, deleteSetting } from '@/lib/settings';
+import { Colors, Glass, Spacing, Radius, Typography } from '@/constants/theme';
+import { getApiKey, setApiKey, getSetting, setSetting, deleteSetting } from '@/lib/settings';
+import GlassCard from '@/components/GlassCard';
 
 export default function SettingsScreen() {
-  const [apiKey, setApiKeyState] = useState('');
-  const [savedKey, setSavedKey] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState(false);
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [savedAnthropicKey, setSavedAnthropicKey] = useState<string | null>(null);
+  const [tmdbKey, setTmdbKey] = useState('');
+  const [savedTmdbKey, setSavedTmdbKey] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      getApiKey().then((key) => {
-        setSavedKey(key);
-        if (key) setApiKeyState(key);
-      });
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    getApiKey().then(k => { setSavedAnthropicKey(k); if (k) setAnthropicKey(k); });
+    getSetting('tmdb_api_key').then(k => { setSavedTmdbKey(k); if (k) setTmdbKey(k); });
+  }, []));
 
-  const handleSave = async () => {
-    const trimmed = apiKey.trim();
-    if (!trimmed) {
-      Alert.alert('Empty key', 'Paste your Anthropic API key first');
-      return;
-    }
-    if (!trimmed.startsWith('sk-ant-')) {
-      Alert.alert(
-        'Invalid key',
-        'Anthropic API keys start with sk-ant-. Double-check and try again.'
-      );
-      return;
-    }
+  const saveAnthropicKey = async () => {
+    const trimmed = anthropicKey.trim();
+    if (!trimmed) { Alert.alert('Empty', 'Paste your Anthropic API key'); return; }
+    if (!trimmed.startsWith('sk-ant-')) { Alert.alert('Invalid', 'Should start with sk-ant-'); return; }
     await setApiKey(trimmed);
-    setSavedKey(trimmed);
-    Alert.alert('✓ Saved', 'API key stored locally on your device.');
+    setSavedAnthropicKey(trimmed);
+    Alert.alert('✓ Saved');
   };
 
-  const handleDelete = () => {
-    Alert.alert('Remove API key?', 'You won\'t be able to scan tickets until you add a new one.', [
+  const saveTmdbKey = async () => {
+    const trimmed = tmdbKey.trim();
+    if (!trimmed) { Alert.alert('Empty', 'Paste your TMDb API key'); return; }
+    await setSetting('tmdb_api_key', trimmed);
+    setSavedTmdbKey(trimmed);
+    Alert.alert('✓ Saved', 'Posters will appear on new scans.');
+  };
+
+  const deleteKey = (type: 'anthropic' | 'tmdb') => {
+    Alert.alert('Remove key?', '', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        if (type === 'anthropic') {
           await deleteSetting('anthropic_api_key');
-          setApiKeyState('');
-          setSavedKey(null);
-        },
-      },
+          setAnthropicKey(''); setSavedAnthropicKey(null);
+        } else {
+          await deleteSetting('tmdb_api_key');
+          setTmdbKey(''); setSavedTmdbKey(null);
+        }
+      }},
     ]);
   };
 
-  const maskedKey = savedKey
-    ? `${savedKey.slice(0, 10)}...${savedKey.slice(-6)}`
-    : null;
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* API Key Section */}
-      <View style={styles.section}>
+      {/* Anthropic Key */}
+      <GlassCard style={styles.section}>
         <Text style={styles.sectionTitle}>ANTHROPIC API KEY</Text>
-        <Text style={styles.sectionDesc}>
-          Required for ticket scanning. Your key is stored locally on this device only — never sent anywhere except Anthropic's API.
-        </Text>
-
-        {savedKey ? (
-          <View style={styles.savedKeyContainer}>
-            <View style={styles.savedKeyRow}>
-              <Ionicons name="checkmark-circle" size={18} color={Colors.green} />
-              <Text style={styles.savedKeyText}>
-                {showKey ? savedKey : maskedKey}
-              </Text>
-            </View>
-            <View style={styles.savedKeyActions}>
-              <TouchableOpacity
-                style={styles.smallBtn}
-                onPress={() => setShowKey(!showKey)}
-              >
-                <Ionicons
-                  name={showKey ? 'eye-off-outline' : 'eye-outline'}
-                  size={16}
-                  color={Colors.textSecondary}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.smallBtn} onPress={handleDelete}>
-                <Ionicons name="trash-outline" size={16} color={Colors.red} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <>
-            <TextInput
-              style={styles.input}
-              value={apiKey}
-              onChangeText={setApiKeyState}
-              placeholder="sk-ant-api03-..."
-              placeholderTextColor={Colors.textMuted}
-              selectionColor={Colors.cream}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-            />
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Ionicons name="key" size={18} color={Colors.bg} />
-              <Text style={styles.saveBtnText}>Save Key</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => Linking.openURL('https://console.anthropic.com/settings/keys')}
-        >
+        <Text style={styles.sectionDesc}>Required for ticket scanning.</Text>
+        <KeyField
+          value={anthropicKey}
+          savedValue={savedAnthropicKey}
+          onChange={setAnthropicKey}
+          onSave={saveAnthropicKey}
+          onDelete={() => deleteKey('anthropic')}
+          placeholder="sk-ant-api03-..."
+        />
+        <TouchableOpacity style={styles.linkRow}
+          onPress={() => Linking.openURL('https://console.anthropic.com/settings/keys')}>
           <Ionicons name="open-outline" size={14} color={Colors.amber} />
-          <Text style={styles.linkText}>Get an API key from console.anthropic.com</Text>
+          <Text style={styles.linkText}>Get key from console.anthropic.com</Text>
         </TouchableOpacity>
-      </View>
+      </GlassCard>
 
-      {/* About Section */}
-      <View style={styles.section}>
+      {/* TMDb Key */}
+      <GlassCard style={styles.section}>
+        <Text style={styles.sectionTitle}>TMDB API KEY</Text>
+        <Text style={styles.sectionDesc}>Optional — enables movie posters and descriptions on your tickets.</Text>
+        <KeyField
+          value={tmdbKey}
+          savedValue={savedTmdbKey}
+          onChange={setTmdbKey}
+          onSave={saveTmdbKey}
+          onDelete={() => deleteKey('tmdb')}
+          placeholder="your tmdb api key..."
+        />
+        <TouchableOpacity style={styles.linkRow}
+          onPress={() => Linking.openURL('https://www.themoviedb.org/settings/api')}>
+          <Ionicons name="open-outline" size={14} color={Colors.amber} />
+          <Text style={styles.linkText}>Get free key from themoviedb.org</Text>
+        </TouchableOpacity>
+      </GlassCard>
+
+      {/* About */}
+      <GlassCard style={styles.section}>
         <Text style={styles.sectionTitle}>ABOUT</Text>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Version</Text>
-          <Text style={styles.aboutValue}>1.0.0</Text>
-        </View>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Model</Text>
-          <Text style={styles.aboutValue}>Claude Sonnet 4</Text>
-        </View>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Cost per scan</Text>
-          <Text style={styles.aboutValue}>~$0.003</Text>
-        </View>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Storage</Text>
-          <Text style={styles.aboutValue}>Local only (SQLite)</Text>
-        </View>
-      </View>
+        <AboutRow label="Version" value="1.0.0" />
+        <AboutRow label="Model" value="Claude Sonnet 4" />
+        <AboutRow label="Cost per scan" value="~$0.003" />
+        <AboutRow label="Storage" value="Local (SQLite)" />
+      </GlassCard>
 
-      {/* Privacy Note */}
-      <View style={styles.section}>
+      {/* Privacy */}
+      <GlassCard style={styles.section}>
         <Text style={styles.sectionTitle}>PRIVACY</Text>
         <Text style={styles.privacyText}>
-          NDPass stores everything locally on your device. Ticket images are sent to Anthropic's API for parsing and are not stored by them. Your API key never leaves your device except to authenticate with Anthropic.
+          Everything stored locally. Ticket images sent to Anthropic for parsing only. TMDb receives movie title text for poster lookup. API keys never leave your device except to authenticate.
         </Text>
-      </View>
+      </GlassCard>
     </ScrollView>
   );
 }
 
+function KeyField({ value, savedValue, onChange, onSave, onDelete, placeholder }: {
+  value: string; savedValue: string | null; onChange: (s: string) => void;
+  onSave: () => void; onDelete: () => void; placeholder: string;
+}) {
+  if (savedValue) {
+    const masked = `${savedValue.slice(0, 8)}...${savedValue.slice(-4)}`;
+    return (
+      <View style={styles.savedRow}>
+        <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
+        <Text style={styles.savedText} numberOfLines={1}>{masked}</Text>
+        <TouchableOpacity onPress={onDelete}><Ionicons name="trash-outline" size={16} color={Colors.red} /></TouchableOpacity>
+      </View>
+    );
+  }
+  return (
+    <View>
+      <TextInput style={styles.input} value={value} onChangeText={onChange}
+        placeholder={placeholder} placeholderTextColor={Colors.textMuted}
+        selectionColor={Colors.cream} autoCapitalize="none" autoCorrect={false} multiline />
+      <TouchableOpacity style={styles.saveBtn} onPress={onSave}>
+        <Text style={styles.saveBtnText}>Save</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function AboutRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.aboutRow}>
+      <Text style={styles.aboutLabel}>{label}</Text>
+      <Text style={styles.aboutValue}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  content: {
-    padding: Spacing.md,
-    paddingBottom: 120,
-    gap: Spacing.lg,
-  },
-
-  // Sections
-  section: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.card,
-    padding: Spacing.lg,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-  },
-  sectionTitle: {
-    fontFamily: Typography.mono,
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    letterSpacing: 2,
-    marginBottom: Spacing.sm,
-  },
-  sectionDesc: {
-    fontFamily: Typography.mono,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: Spacing.md,
-  },
-
-  // Input
-  input: {
-    fontFamily: Typography.mono,
-    fontSize: 13,
-    color: Colors.cream,
-    backgroundColor: Colors.bgInput,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-  },
-  inputActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: Spacing.xs,
-  },
-
-  // Saved key display
-  savedKeyContainer: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-  },
-  savedKeyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  savedKeyText: {
-    fontFamily: Typography.mono,
-    fontSize: 12,
-    color: Colors.cream,
-    flex: 1,
-  },
-  savedKeyActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-  },
-
-  // Buttons
-  smallBtn: {
-    padding: 6,
-  },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.cream,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.lg,
-    marginTop: Spacing.md,
-  },
-  saveBtnText: {
-    fontFamily: Typography.mono,
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.bg,
-  },
-
-  // Link
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: Spacing.md,
-  },
-  linkText: {
-    fontFamily: Typography.mono,
-    fontSize: 11,
-    color: Colors.amber,
-  },
-
-  // About
-  aboutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
-  },
-  aboutLabel: {
-    fontFamily: Typography.mono,
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  aboutValue: {
-    fontFamily: Typography.mono,
-    fontSize: 13,
-    color: Colors.cream,
-  },
-
-  // Privacy
-  privacyText: {
-    fontFamily: Typography.mono,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  content: { padding: Spacing.md, paddingBottom: 120, gap: Spacing.md },
+  section: { padding: Spacing.lg },
+  sectionTitle: { fontFamily: Typography.mono, fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 2, marginBottom: Spacing.xs },
+  sectionDesc: { fontFamily: Typography.mono, fontSize: 12, color: Colors.textSecondary, lineHeight: 18, marginBottom: Spacing.md },
+  input: { fontFamily: Typography.mono, fontSize: 13, color: Colors.cream, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderWidth: 0.5, borderColor: Colors.glassBorder },
+  saveBtn: { alignItems: 'center', backgroundColor: Colors.cream, paddingVertical: 10, borderRadius: Radius.md, marginTop: Spacing.sm },
+  saveBtnText: { fontFamily: Typography.mono, fontSize: 13, fontWeight: '700', color: Colors.bg },
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: 'rgba(255,255,255,0.04)', padding: Spacing.md, borderRadius: Radius.md },
+  savedText: { fontFamily: Typography.mono, fontSize: 12, color: Colors.cream, flex: 1 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md },
+  linkText: { fontFamily: Typography.mono, fontSize: 11, color: Colors.amber },
+  aboutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: Colors.glassBorder },
+  aboutLabel: { fontFamily: Typography.mono, fontSize: 13, color: Colors.textSecondary },
+  aboutValue: { fontFamily: Typography.mono, fontSize: 13, color: Colors.cream },
+  privacyText: { fontFamily: Typography.mono, fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
 });

@@ -27,10 +27,16 @@ export default function CalendarScreen() {
     getAllTickets().then(setTickets);
   }, []));
 
-  // Map date strings to tickets
+  // Map date strings to unique showings (deduplicate by groupKey)
   const ticketsByDate = useMemo(() => {
     const map = new Map<string, Ticket[]>();
+    const seen = new Set<string>();
     for (const t of tickets) {
+      // Deduplicate: only one entry per unique showing
+      const dedupeKey = t.groupKey ?? `${t.movieTitle}|${t.theater}|${t.date}|${t.time}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
       const existing = map.get(t.date) ?? [];
       existing.push(t);
       map.set(t.date, existing);
