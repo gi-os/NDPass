@@ -49,37 +49,18 @@ export default function ScanScreen() {
     if (!permission.granted) { Alert.alert('Permission needed', 'Grant access in Settings'); return; }
 
     const result = useCamera
-      ? await ImagePicker.launchCameraAsync({
-          quality: 0.5,
-          base64: true,
-          exif: false,
-          allowsEditing: false,
-        })
-      : await ImagePicker.launchImageLibraryAsync({
-          quality: 0.5,
-          mediaTypes: ['images'],
-          base64: true,
-          exif: false,
-          allowsEditing: false,
-        });
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, mediaTypes: ['images'] });
     if (result.canceled) return;
 
-    const asset = result.assets[0];
-    const uri = asset.uri;
-    const base64 = asset.base64;
+    const uri = result.assets[0].uri;
     setImageUri(uri);
     setState('loading');
     setLogs([]);
     addLog('Image selected');
 
-    if (!base64) {
-      Alert.alert('Error', 'Could not read image data. Try again.');
-      setState('idle');
-      return;
-    }
-
     try {
-      const data = await parseTicketImage(base64, uri, addLog);
+      const data = await parseTicketImage(uri, addLog);
       setParsed(data);
       setMovieTitle(data.movieTitle);
       setTheater(data.theater);

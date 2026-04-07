@@ -1,4 +1,5 @@
 import { ParsedTicketData } from './types';
+import * as FileSystem from 'expo-file-system';
 import { getApiKey } from './settings';
 
 const REQUEST_TIMEOUT_MS = 30000;
@@ -33,16 +34,12 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-function detectMediaType(uri: string): string {
-  const lower = uri.toLowerCase();
-  if (lower.includes('.png')) return 'image/png';
-  if (lower.includes('.webp')) return 'image/webp';
-  if (lower.includes('.gif')) return 'image/gif';
-  return 'image/jpeg';
-}
-
+/**
+ * Parse a ticket image using Claude Vision.
+ * Takes a local file URI (from image picker), reads it as base64,
+ * detects media type from extension, and sends to Claude.
+ */
 export async function parseTicketImage(
-  base64Data: string,
   imageUri: string,
   onStatus?: (msg: string) => void,
 ): Promise<ParsedTicketData> {
@@ -56,19 +53,19 @@ export async function parseTicketImage(
     throw new Error('No API key configured.\n\nGo to Settings tab and add your Anthropic API key.');
   }
 
-  // Clean base64 — strip data URI prefix if present
-  let base64 = base64Data;
-  if (base64.startsWith('data:')) {
-    base64 = base64.split(',')[1] ?? base64;
-  }
+  log('Reading image...');
 
-  const mediaType = detectMediaType(imageUri);
+  // Read image as base64 from the file URI — this is the original working method
+  const base64 = await FileSystem.readAsStringAsync(imageUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  // Detect media type from URI
+  const lower = imageUri.toLowerCase();
+  const mediaType = (lower.includes('.png')) ? 'image/png' : 'image/jpeg';
+
   const sizeKB = Math.round(base64.length / 1024);
-  log(`Image: ${sizeKB}KB, type: ${mediaType}`);
-
-  if (base64.length < 100) {
-    throw new Error('Image data appears empty or corrupted. Try again.');
-  }
+  log(`Image: ${sizeKB}KB, ${mediaType}`);
 
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
