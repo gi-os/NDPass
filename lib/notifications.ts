@@ -2,13 +2,17 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { parse, subHours, subMinutes, setHours, setMinutes, setSeconds, isBefore } from 'date-fns';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (e) {
+  console.log('[NDPass] Notification handler setup deferred:', e);
+}
 
 export async function requestPermissions(): Promise<boolean> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
