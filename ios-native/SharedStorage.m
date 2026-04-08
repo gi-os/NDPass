@@ -1,5 +1,5 @@
 #import "SharedStorage.h"
-#import <WidgetKit/WidgetKit.h>
+@import WidgetKit;
 
 @implementation SharedStorage
 
