@@ -88,11 +88,37 @@ struct NextShowingProvider: TimelineProvider {
     
     /// Read next showing from shared App Group UserDefaults
     private func loadNextShowing() -> NextShowing? {
-        guard let defaults = UserDefaults(suiteName: "group.com.gios.ndpass"),
-              let data = defaults.data(forKey: "nextShowing"),
-              let showing = try? JSONDecoder().decode(NextShowing.self, from: data)
-        else { return nil }
-        return showing
+        guard let defaults = UserDefaults(suiteName: "group.com.gios.ndpass") else {
+            print("[NDPass Widget] ERROR: Could not open App Group defaults")
+            return nil
+        }
+        
+        // Debug: dump all keys to see what's actually stored
+        let allKeys = defaults.dictionaryRepresentation().keys
+        print("[NDPass Widget] All keys in App Group: \(Array(allKeys))")
+        
+        // react-native-shared-group-preferences stores as a string
+        if let jsonString = defaults.string(forKey: "nextShowing") {
+            print("[NDPass Widget] Found string for 'nextShowing': \(jsonString.prefix(100))")
+            if let data = jsonString.data(using: .utf8),
+               let showing = try? JSONDecoder().decode(NextShowing.self, from: data) {
+                print("[NDPass Widget] ✓ Decoded successfully: \(showing.movieTitle)")
+                return showing
+            } else {
+                print("[NDPass Widget] ERROR: Failed to decode JSON string")
+            }
+        }
+        
+        // Try reading as Data directly
+        if let data = defaults.data(forKey: "nextShowing") {
+            print("[NDPass Widget] Found data for 'nextShowing': \(data.count) bytes")
+            if let showing = try? JSONDecoder().decode(NextShowing.self, from: data) {
+                return showing
+            }
+        }
+        
+        print("[NDPass Widget] No data found for 'nextShowing'")
+        return nil
     }
 }
 
