@@ -89,7 +89,7 @@ struct SmallWidgetView: View {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
                 
-                // Poster — correct 2:3 aspect ratio
+                // Poster
                 Group {
                     if let img = entry.posterImage {
                         PosterView(uiImage: img).aspectRatio(2/3, contentMode: .fit)
@@ -105,27 +105,23 @@ struct SmallWidgetView: View {
                 .frame(maxHeight: .infinity)
                 .padding(.vertical, 4)
                 
-                // Vertical text — title top, time bottom
-                ZStack {
-                    VStack(spacing: 0) {
-                        // Movie title
-                        Text(showing.movieTitle)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                            .rotationEffect(.degrees(-90))
-                            .fixedSize()
-                            .frame(maxHeight: .infinity)
-                        
-                        // Time + countdown
-                        Text("\(daysUntil(showing.date)) \(showing.time)")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(accent)
-                            .rotationEffect(.degrees(-90))
-                            .fixedSize()
-                            .frame(maxHeight: .infinity)
-                    }
-                }
-                .frame(width: 36)
+                // Title column (left of time)
+                Text(showing.movieTitle)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(-90))
+                    .fixedSize()
+                    .frame(width: 18)
+                    .clipped()
+                
+                // Time column
+                Text("\(daysUntil(showing.date)) \(showing.time)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(accent)
+                    .rotationEffect(.degrees(-90))
+                    .fixedSize()
+                    .frame(width: 18)
+                    .clipped()
                 
                 Spacer(minLength: 0)
             }
