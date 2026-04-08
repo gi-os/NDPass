@@ -91,7 +91,18 @@ extension Color {
 
 let darkBg = Color(red: 0.03, green: 0.03, blue: 0.05)
 
-// MARK: - Small Widget (2 columns: poster left, text right)
+// Helper view for poster image that preserves colors in all widget modes
+struct PosterImage: View {
+    let uiImage: UIImage
+    
+    var body: some View {
+        Image(uiImage: uiImage)
+            .renderingMode(.original)
+            .resizable()
+    }
+}
+
+// MARK: - Small Widget (2 columns: poster left, info right)
 
 struct SmallWidgetView: View {
     let entry: NextShowingEntry
@@ -99,49 +110,52 @@ struct SmallWidgetView: View {
     
     var body: some View {
         if let showing = entry.showing {
-            HStack(spacing: 8) {
-                // Left: poster
-                Group {
-                    if let img = entry.posterImage {
-                        Image(uiImage: img)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } else {
-                        Rectangle().fill(Color.white.opacity(0.05))
-                            .overlay {
-                                Image(systemName: "film")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(.white.opacity(0.15))
-                            }
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    // Left column: poster
+                    Group {
+                        if let img = entry.posterImage {
+                            PosterImage(uiImage: img)
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            Rectangle().fill(Color.white.opacity(0.06))
+                                .overlay {
+                                    Image(systemName: "film")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(.white.opacity(0.15))
+                                }
+                        }
                     }
+                    .frame(width: geo.size.width * 0.45, height: geo.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.leading, 4)
+                    
+                    // Right column: info
+                    VStack(alignment: .leading, spacing: 3) {
+                        Spacer(minLength: 0)
+                        
+                        Text(showing.movieTitle)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
+                        Spacer(minLength: 2)
+                        
+                        Text(daysUntil(showing.date))
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(accent)
+                        
+                        Text(showing.time)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                        
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                
-                // Right: text info
-                VStack(alignment: .leading, spacing: 4) {
-                    Spacer(minLength: 0)
-                    
-                    Text(showing.movieTitle)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(3)
-                    
-                    Spacer(minLength: 2)
-                    
-                    Text(daysUntil(showing.date))
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(accent)
-                    
-                    Text(showing.time)
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                    
-                    Spacer(minLength: 0)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.trailing, 6)
-                .padding(.vertical, 8)
             }
             .containerBackground(for: .widget) { darkBg }
         } else {
@@ -165,18 +179,17 @@ struct MediumWidgetView: View {
             HStack(spacing: 14) {
                 Group {
                     if let img = entry.posterImage {
-                        Image(uiImage: img)
-                            .resizable()
+                        PosterImage(uiImage: img)
                             .aspectRatio(2/3, contentMode: .fill)
                     } else {
-                        Rectangle().fill(Color.white.opacity(0.05))
+                        Rectangle().fill(Color.white.opacity(0.06))
                             .overlay {
                                 Image(systemName: "film").foregroundStyle(.white.opacity(0.15))
                             }
                     }
                 }
                 .frame(width: 80, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(showing.movieTitle)
