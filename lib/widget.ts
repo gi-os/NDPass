@@ -1,10 +1,7 @@
 import { getActiveTickets } from './database';
 import { getPosterUrl } from './tmdb';
-import { Platform, NativeModules } from 'react-native';
+import { Platform } from 'react-native';
 
-/**
- * Update widget data and trigger a timeline reload.
- */
 export async function updateWidget(): Promise<void> {
   if (Platform.OS !== 'ios') return;
 
@@ -22,27 +19,35 @@ export async function updateWidget(): Promise<void> {
 
     console.log('[NDPass] Widget data:', data ? data.movieTitle : 'empty');
 
-    // Write to App Group UserDefaults
     try {
       const SharedGroupPreferences = require('react-native-shared-group-preferences').default;
       const jsonString = data ? JSON.stringify(data) : '';
       await SharedGroupPreferences.setItem('nextShowing', jsonString, 'group.com.gios.ndpass');
       console.log('[NDPass] ✓ Widget UserDefaults written');
+
+      // Download poster to App Group container so widget can read it locally
+      if (data?.posterUrl) {
+        try {
+          const resp = await fetch(data.posterUrl);
+          const blob = await resp.blob();
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve) => {
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              // Strip data URI prefix
+              const base64Data = result.split(',')[1] ?? result;
+              resolve(base64Data);
+            };
+            reader.readAsDataURL(blob);
+          });
+          await SharedGroupPreferences.setItem('widgetPosterBase64', base64, 'group.com.gios.ndpass');
+          console.log('[NDPass] ✓ Widget poster saved to App Group');
+        } catch (e) {
+          console.log('[NDPass] Poster download failed:', e);
+        }
+      }
     } catch (e: any) {
       console.log('[NDPass] SharedGroupPreferences error:', e.message ?? e);
-    }
-
-    // Reload widget timelines
-    try {
-      // WidgetKit reload is available if expo-widgets or a custom module exposes it
-      // For now, the widget refreshes on its own every 30 min
-      // or when the user removes and re-adds it
-      if (NativeModules.WidgetModule?.reloadAllTimelines) {
-        NativeModules.WidgetModule.reloadAllTimelines();
-        console.log('[NDPass] ✓ Widget timelines reloaded');
-      }
-    } catch {
-      // Expected — no custom WidgetModule yet
     }
   } catch (err) {
     console.log('[NDPass] Widget update failed:', err);
