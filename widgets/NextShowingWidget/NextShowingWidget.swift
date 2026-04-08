@@ -91,18 +91,14 @@ extension Color {
 
 let darkBg = Color(red: 0.03, green: 0.03, blue: 0.05)
 
-// Helper view for poster image that preserves colors in all widget modes
 struct PosterImage: View {
     let uiImage: UIImage
-    
     var body: some View {
-        Image(uiImage: uiImage)
-            .renderingMode(.original)
-            .resizable()
+        Image(uiImage: uiImage).renderingMode(.original).resizable()
     }
 }
 
-// MARK: - Small Widget (2 columns: poster left, info right)
+// MARK: - Small Widget
 
 struct SmallWidgetView: View {
     let entry: NextShowingEntry
@@ -111,50 +107,58 @@ struct SmallWidgetView: View {
     var body: some View {
         if let showing = entry.showing {
             GeometryReader { geo in
-                HStack(spacing: 0) {
-                    // Left column: poster
-                    Group {
-                        if let img = entry.posterImage {
-                            PosterImage(uiImage: img)
-                                .aspectRatio(contentMode: .fill)
-                        } else {
-                            Rectangle().fill(Color.white.opacity(0.06))
-                                .overlay {
-                                    Image(systemName: "film")
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(.white.opacity(0.15))
-                                }
+                VStack(spacing: 0) {
+                    // Top: two columns — poster + info
+                    HStack(spacing: 6) {
+                        // Poster (smaller, ~38% width)
+                        Group {
+                            if let img = entry.posterImage {
+                                PosterImage(uiImage: img)
+                                    .aspectRatio(contentMode: .fill)
+                            } else {
+                                Rectangle().fill(Color.white.opacity(0.06))
+                                    .overlay {
+                                        Image(systemName: "film").font(.system(size: 14)).foregroundStyle(.white.opacity(0.15))
+                                    }
+                            }
                         }
-                    }
-                    .frame(width: geo.size.width * 0.45, height: geo.size.height)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .padding(.leading, 4)
-                    
-                    // Right column: info
-                    VStack(alignment: .leading, spacing: 3) {
-                        Spacer(minLength: 0)
+                        .frame(width: geo.size.width * 0.38, height: geo.size.height * 0.65)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                         
-                        Text(showing.movieTitle)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                        
-                        Spacer(minLength: 2)
-                        
-                        Text(daysUntil(showing.date))
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(accent)
-                        
-                        Text(showing.time)
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white)
-                        
-                        Spacer(minLength: 0)
+                        // Info column
+                        VStack(alignment: .leading, spacing: 4) {
+                            Spacer(minLength: 0)
+                            
+                            Text(daysUntil(showing.date))
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(accent)
+                            
+                            Text(showing.time)
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white)
+                            
+                            Text(showing.theater)
+                                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.4))
+                                .lineLimit(2)
+                            
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+                    
+                    Spacer(minLength: 0)
+                    
+                    // Bottom: movie title
+                    Text(showing.movieTitle)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 8)
                 }
             }
             .containerBackground(for: .widget) { darkBg }
