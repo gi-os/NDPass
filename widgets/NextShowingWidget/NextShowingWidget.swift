@@ -30,7 +30,6 @@ struct NextShowingProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextShowingEntry>) -> Void) {
         let (showing, img) = loadData()
         var entries = [NextShowingEntry(date: Date(), showing: showing, posterImage: img, relevance: nil)]
-        
         if let s = showing {
             let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd h:mm a"
             if let st = fmt.date(from: "\(s.date) \(s.time)") {
@@ -47,21 +46,16 @@ struct NextShowingProvider: TimelineProvider {
     
     private func loadData() -> (NextShowing?, UIImage?) {
         guard let d = UserDefaults(suiteName: "group.com.gios.ndpass") else { return (nil, nil) }
-        
-        // Read showing JSON
         var showing: NextShowing? = nil
         if let str = d.string(forKey: "nextShowing"), !str.isEmpty,
            let data = str.data(using: .utf8) {
             showing = try? JSONDecoder().decode(NextShowing.self, from: data)
         }
-        
-        // Read poster base64
         var image: UIImage? = nil
         if let b64 = d.string(forKey: "widgetPosterBase64"), !b64.isEmpty,
            let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters) {
             image = UIImage(data: data)
         }
-        
         return (showing, image)
     }
 }
@@ -97,7 +91,7 @@ extension Color {
 
 let darkBg = Color(red: 0.03, green: 0.03, blue: 0.05)
 
-// MARK: - Small Widget
+// MARK: - Small Widget (2 columns: poster left, text right)
 
 struct SmallWidgetView: View {
     let entry: NextShowingEntry
@@ -105,39 +99,49 @@ struct SmallWidgetView: View {
     
     var body: some View {
         if let showing = entry.showing {
-            VStack(spacing: 0) {
-                // Poster — takes most of the space, correct aspect ratio
+            HStack(spacing: 8) {
+                // Left: poster
                 Group {
                     if let img = entry.posterImage {
                         Image(uiImage: img)
                             .resizable()
-                            .aspectRatio(2/3, contentMode: .fit)
+                            .aspectRatio(contentMode: .fill)
                     } else {
                         Rectangle().fill(Color.white.opacity(0.05))
-                            .aspectRatio(2/3, contentMode: .fit)
                             .overlay {
                                 Image(systemName: "film")
-                                    .font(.system(size: 18))
+                                    .font(.system(size: 16))
                                     .foregroundStyle(.white.opacity(0.15))
                             }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
                 
-                Spacer(minLength: 0)
-                
-                // Compact info bar
-                HStack {
-                    Text(daysUntil(showing.date))
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(accent)
-                    Spacer()
-                    Text(showing.time)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                // Right: text info
+                VStack(alignment: .leading, spacing: 4) {
+                    Spacer(minLength: 0)
+                    
+                    Text(showing.movieTitle)
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
+                        .lineLimit(3)
+                    
+                    Spacer(minLength: 2)
+                    
+                    Text(daysUntil(showing.date))
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(accent)
+                    
+                    Text(showing.time)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                    
+                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
+                .frame(maxWidth: .infinity)
+                .padding(.trailing, 6)
+                .padding(.vertical, 8)
             }
             .containerBackground(for: .widget) { darkBg }
         } else {
@@ -159,7 +163,6 @@ struct MediumWidgetView: View {
     var body: some View {
         if let showing = entry.showing {
             HStack(spacing: 14) {
-                // Poster with correct aspect ratio
                 Group {
                     if let img = entry.posterImage {
                         Image(uiImage: img)
@@ -233,7 +236,6 @@ struct WidgetRouter: View {
     @Environment(\.widgetFamily) var family
     let entry: NextShowingEntry
     var accent: Color { Color(hex: entry.showing?.dominantColor ?? "#E8A63A") }
-    
     var body: some View {
         switch family {
         case .systemSmall: SmallWidgetView(entry: entry, accent: accent)
