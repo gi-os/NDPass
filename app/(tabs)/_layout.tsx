@@ -8,7 +8,9 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.bg, shadowColor: 'transparent', elevation: 0 },
+        headerStyle: { backgroundColor: 'transparent', shadowColor: 'transparent', elevation: 0 },
+        headerTransparent: true,
+        headerBlurEffect: 'dark',
         headerTintColor: Colors.cream,
         headerTitleStyle: { fontFamily: 'Courier', fontWeight: '700', fontSize: 18, letterSpacing: 0.5 },
         tabBarStyle: {

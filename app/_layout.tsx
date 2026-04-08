@@ -45,6 +45,8 @@ export default function RootLayout() {
           options={{
             title: '',
             headerTransparent: true,
+            headerBlurEffect: 'dark',
+            headerStyle: { backgroundColor: 'transparent' },
             headerBackTitle: 'Back',
             contentStyle: { backgroundColor: 'transparent' },
           }}

@@ -78,7 +78,7 @@ struct PosterView: View {
     }
 }
 
-// MARK: - Small Widget — poster fills space, vertical text on right edge
+// MARK: - Small Widget
 
 struct SmallWidgetView: View {
     let entry: NextShowingEntry
@@ -86,40 +86,31 @@ struct SmallWidgetView: View {
     
     var body: some View {
         if let showing = entry.showing {
-            HStack(spacing: 0) {
-                // Poster — takes all space except thin right strip
-                Group {
-                    if let img = entry.posterImage {
-                        PosterView(uiImage: img)
-                    } else {
-                        Rectangle().fill(Color.white.opacity(0.06))
-                            .overlay { Image(systemName: "film").font(.system(size: 20)).foregroundStyle(.white.opacity(0.15)) }
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    // Poster
+                    Group {
+                        if let img = entry.posterImage {
+                            PosterView(uiImage: img)
+                        } else {
+                            Rectangle().fill(Color.white.opacity(0.06))
+                                .overlay { Image(systemName: "film").font(.system(size: 20)).foregroundStyle(.white.opacity(0.15)) }
+                        }
                     }
+                    .frame(width: geo.size.width - 32, height: geo.size.height)
+                    .clipped()
+                    
+                    // Vertical text — fills the full height
+                    ZStack {
+                        // Countdown — rotated, fills the strip
+                        Text("\(daysUntil(showing.date))  ·  \(showing.time)")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .rotationEffect(.degrees(-90))
+                            .fixedSize()
+                    }
+                    .frame(width: 32, height: geo.size.height)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                
-                // Vertical text strip — reads bottom to top
-                VStack(spacing: 4) {
-                    Spacer(minLength: 0)
-                    
-                    Text(showing.time)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .rotationEffect(.degrees(-90))
-                        .fixedSize()
-                    
-                    Spacer(minLength: 4)
-                    
-                    Text(daysUntil(showing.date))
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(accent)
-                        .rotationEffect(.degrees(-90))
-                        .fixedSize()
-                    
-                    Spacer(minLength: 0)
-                }
-                .frame(width: 28)
             }
             .containerBackground(for: .widget) { darkBg }
         } else {
