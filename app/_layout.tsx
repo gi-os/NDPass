@@ -31,9 +31,8 @@ export default function RootLayout() {
           headerTintColor: Colors.cream,
           headerTitleStyle: {
             fontFamily: 'Courier',
-            fontWeight: '700',
+            fontWeight: '700' as const,
             fontSize: 18,
-            letterSpacing: 1,
           },
           headerShadowVisible: false,
           contentStyle: { backgroundColor: Colors.bg },
