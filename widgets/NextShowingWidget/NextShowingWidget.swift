@@ -105,14 +105,14 @@ struct SmallWidgetView: View {
                 .frame(maxHeight: .infinity)
                 .padding(.vertical, 4)
                 
-                // Title column (left of time)
+                // Title column
                 Text(showing.movieTitle)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
                     .rotationEffect(.degrees(-90))
                     .fixedSize()
-                    .frame(width: 18)
-                    .clipped()
+                    .frame(width: 20)
                 
                 // Time column
                 Text("\(daysUntil(showing.date)) \(showing.time)")
@@ -120,8 +120,7 @@ struct SmallWidgetView: View {
                     .foregroundStyle(accent)
                     .rotationEffect(.degrees(-90))
                     .fixedSize()
-                    .frame(width: 18)
-                    .clipped()
+                    .frame(width: 20)
                 
                 Spacer(minLength: 0)
             }
