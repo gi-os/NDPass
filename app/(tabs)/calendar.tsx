@@ -1,12 +1,13 @@
 import { useCallback, useState, useMemo } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions, Image,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Glass, Spacing, Radius, Typography } from '@/constants/theme';
 import { getAllTickets } from '@/lib/database';
 import { Ticket } from '@/lib/types';
+import { getPosterUrl } from '@/lib/tmdb';
 import GlassCard from '@/components/GlassCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -110,24 +111,46 @@ export default function CalendarScreen() {
                     styles.dayCell,
                     isToday && styles.dayCellToday,
                     isSelected && styles.dayCellSelected,
-                    hasTickets && styles.dayCellHasTicket,
                   ]}
                   onPress={() => setSelectedDate(dateStr)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
-                    styles.dayText,
-                    isToday && styles.dayTextToday,
-                    isSelected && styles.dayTextSelected,
-                  ]}>
-                    {day}
-                  </Text>
-                  {hasTickets && (
-                    <View style={styles.ticketDot}>
+                  {hasTickets && dayTickets[0].posterPath ? (
+                    // Show poster as the day cell
+                    <View style={styles.posterCell}>
+                      <Image
+                        source={{ uri: getPosterUrl(dayTickets[0].posterPath!, 'w185') }}
+                        style={styles.posterCellImage}
+                      />
+                      {/* Dark overlay for readability */}
+                      <View style={styles.posterCellOverlay}>
+                        <Text style={styles.posterCellDay}>{day}</Text>
+                      </View>
                       {dayTickets.length > 1 && (
-                        <Text style={styles.ticketDotCount}>{dayTickets.length}</Text>
+                        <View style={styles.posterCellBadge}>
+                          <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
+                        </View>
                       )}
                     </View>
+                  ) : hasTickets ? (
+                    // Has tickets but no poster — amber bg with day number
+                    <View style={styles.dayCellHasTicket}>
+                      <Text style={[styles.dayText, styles.dayTextToday]}>{day}</Text>
+                      {dayTickets.length > 1 && (
+                        <View style={styles.posterCellBadge}>
+                          <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    // Normal day
+                    <Text style={[
+                      styles.dayText,
+                      isToday && styles.dayTextToday,
+                      isSelected && styles.dayTextSelected,
+                    ]}>
+                      {day}
+                    </Text>
                   )}
                 </TouchableOpacity>
               );
@@ -204,21 +227,49 @@ const styles = StyleSheet.create({
     borderColor: Colors.amber,
   },
   dayCellHasTicket: {
+    width: '100%', height: '100%',
     backgroundColor: Colors.amberGlow,
+    borderRadius: Radius.md,
+    justifyContent: 'center', alignItems: 'center',
+    position: 'relative',
   },
   dayText: { fontFamily: Typography.mono, fontSize: 14, color: Colors.textSecondary },
   dayTextToday: { color: Colors.cream, fontWeight: '700' },
   dayTextSelected: { color: Colors.amber, fontWeight: '700' },
 
-  // Ticket dot
-  ticketDot: {
-    position: 'absolute', bottom: 4,
-    backgroundColor: Colors.amber,
-    minWidth: 6, height: 6, borderRadius: 3,
-    paddingHorizontal: 2,
-    justifyContent: 'center', alignItems: 'center',
+  // Poster cell — replaces day number with poster thumbnail
+  posterCell: {
+    width: '100%', height: '100%',
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  ticketDotCount: { fontFamily: Typography.mono, fontSize: 8, color: Colors.bg, fontWeight: '700' },
+  posterCellImage: {
+    width: '100%', height: '100%',
+    resizeMode: 'cover',
+  },
+  posterCellOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 2,
+  },
+  posterCellDay: {
+    fontFamily: Typography.mono, fontSize: 9, fontWeight: '700',
+    color: 'rgba(255,255,255,0.8)',
+  },
+  posterCellBadge: {
+    position: 'absolute', top: 2, right: 2,
+    backgroundColor: Colors.amber,
+    minWidth: 16, height: 14,
+    borderRadius: 7,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  posterCellBadgeText: {
+    fontFamily: Typography.mono, fontSize: 8, fontWeight: '700', color: Colors.bg,
+  },
 
   // Detail section
   detailSection: { marginTop: Spacing.lg },
