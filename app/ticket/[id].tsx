@@ -126,7 +126,7 @@ export default function TicketDetail() {
         {(backdropUri || posterUri) ? (
           <View style={styles.heroContainer}>
             <Image source={{ uri: backdropUri ?? posterUri! }} style={styles.heroBg} blurRadius={20} />
-            <LinearGradient colors={['transparent', Colors.bg]} locations={[0.3, 1]} style={StyleSheet.absoluteFillObject} />
+            <LinearGradient colors={['rgba(0,0,0,0.3)', 'transparent', Colors.bg]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFillObject} />
             <SafeAreaView style={styles.heroContent}>
               {posterUri && <Image source={{ uri: posterUri }} style={styles.poster} />}
             </SafeAreaView>
