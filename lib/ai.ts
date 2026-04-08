@@ -1,5 +1,5 @@
 import { ParsedTicketData } from './types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getApiKey } from './settings';
 
 const REQUEST_TIMEOUT_MS = 30000;
