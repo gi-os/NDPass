@@ -1,17 +1,20 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Image, TextInput, StyleSheet,
   ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Colors, Spacing, Radius, Typography } from '@/constants/theme';
 import { parseTicketImage } from '@/lib/ai';
 import { insertTicket } from '@/lib/database';
 import { scheduleReminders } from '@/lib/notifications';
 import { searchMovie, getPosterUrl } from '@/lib/tmdb';
 import { updateWidget } from '@/lib/widget';
+import { checkForSharedImage } from '@/lib/share';
 import { generateId } from '@/lib/utils';
 import { ParsedTicketData } from '@/lib/types';
 
@@ -42,22 +45,12 @@ export default function ScanScreen() {
 
   useEffect(() => { logScrollRef.current?.scrollToEnd({ animated: true }); }, [logs]);
 
-  const pickImage = async (useCamera: boolean) => {
-    const permission = useCamera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) { Alert.alert('Permission needed', 'Grant access in Settings'); return; }
-
-    const result = useCamera
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
-      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, mediaTypes: ['images'] });
-    if (result.canceled) return;
-
-    const uri = result.assets[0].uri;
+  // Process an image URI through AI parsing + TMDb lookup
+  const processUri = async (uri: string) => {
     setImageUri(uri);
     setState('loading');
     setLogs([]);
-    addLog('Image selected');
+    addLog('Image received');
 
     try {
       const data = await parseTicketImage(uri, addLog);
@@ -70,7 +63,6 @@ export default function ScanScreen() {
       setPrice(data.price ?? '');
       addLog(`✓ Parsed: ${data.movieTitle}`);
 
-      // Fetch poster from TMDb
       addLog('Looking up poster...');
       const movie = await searchMovie(data.movieTitle);
       if (movie?.posterPath) {
@@ -81,13 +73,43 @@ export default function ScanScreen() {
       } else {
         addLog('No poster found on TMDb');
       }
-
       setState('review');
     } catch (err: any) {
       addLog(`✗ Error: ${err.message}`);
       Alert.alert('Parse Error', err.message ?? 'Failed to read ticket');
       setState('idle');
     }
+  };
+
+  // Check for shared image on tab focus
+  useFocusEffect(useCallback(() => {
+    (async () => {
+      if (state !== 'idle') return;
+      const sharedBase64 = await checkForSharedImage();
+      if (sharedBase64) {
+        // Save base64 to a temp file so parseTicketImage can read it
+        const tempPath = `${FileSystem.cacheDirectory}shared_ticket_${Date.now()}.jpg`;
+        await FileSystem.writeAsStringAsync(tempPath, sharedBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        console.log('[NDPass] Processing shared ticket image');
+        processUri(tempPath);
+      }
+    })();
+  }, [state]));
+
+  const pickImage = async (useCamera: boolean) => {
+    const permission = useCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert('Permission needed', 'Grant access in Settings'); return; }
+
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, mediaTypes: ['images'] });
+    if (result.canceled) return;
+
+    processUri(result.assets[0].uri);
   };
 
   const saveTicket = async () => {

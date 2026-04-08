@@ -1,61 +1,45 @@
-import { useEffect } from 'react';
-import * as FileSystem from 'expo-file-system';
-import * as Linking from 'expo-linking';
-import { Platform, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { Platform, NativeModules } from 'react-native';
 
-const APP_GROUP = 'group.com.gios.ndpass';
+const GROUP = 'group.com.gios.ndpass';
 
 /**
  * Check if a ticket image was shared via the Share Extension.
- * The extension saves the image to the App Group container
- * and sets a flag file. This hook checks for that flag on app launch
- * and when the app receives the ndpass://scan/shared URL.
+ * The extension saves the image to the App Group container as shared_ticket.jpg
+ * and sets a pending_share.flag file.
+ *
+ * Returns the base64 image data if a pending share exists, null otherwise.
+ * Clears the flag after reading.
  */
-export function useShareExtension() {
-  useEffect(() => {
-    // Check on mount
-    checkForSharedImage();
-
-    // Listen for URL scheme
-    const subscription = Linking.addEventListener('url', (event) => {
-      if (event.url.includes('scan/shared')) {
-        checkForSharedImage();
-      }
-    });
-
-    return () => subscription.remove();
-  }, []);
-}
-
-async function checkForSharedImage() {
-  if (Platform.OS !== 'ios') return;
+export async function checkForSharedImage(): Promise<string | null> {
+  if (Platform.OS !== 'ios') return null;
 
   try {
-    // The shared container path — this needs react-native-shared-group-preferences
-    // or a native module to access. For now we log the intent.
-    console.log('[NDPass] Checking for shared ticket image...');
+    const { SharedStorage } = NativeModules;
+    if (!SharedStorage?.get) {
+      console.log('[NDPass] SharedStorage not available for share check');
+      return null;
+    }
 
-    // When the share extension saves an image, it'll be at:
-    // <AppGroup>/shared_ticket.jpg with a pending_share.flag
-    // This requires native bridge to read from App Group container.
-    // The full implementation needs the native module — for now,
-    // navigate to scan tab so user can pick the image.
+    // Check for pending share flag
+    const flag = await SharedStorage.get('pendingShareFlag', GROUP);
+    if (!flag || flag !== '1') return null;
 
-    // TODO: Once react-native-shared-group-preferences is installed,
-    // read the image from the App Group and auto-start scanning.
+    console.log('[NDPass] Found pending shared ticket!');
+
+    // Read the shared image base64
+    const imageBase64 = await SharedStorage.get('sharedTicketBase64', GROUP);
+    if (!imageBase64) {
+      console.log('[NDPass] No image data in share');
+      return null;
+    }
+
+    // Clear the flag
+    await SharedStorage.set('pendingShareFlag', '', GROUP);
+
+    console.log(`[NDPass] Shared image loaded (${Math.round(imageBase64.length / 1024)}KB)`);
+    return imageBase64;
   } catch (err) {
     console.log('[NDPass] Share check failed:', err);
+    return null;
   }
-}
-
-/**
- * Get the path to a shared image if one exists.
- * Returns null if no pending share.
- */
-export async function getSharedImagePath(): Promise<string | null> {
-  // This will be implemented once the native bridge is set up
-  // For now returns null — the share extension opens the app
-  // and the user taps "Library" to pick the screenshot
-  return null;
 }
