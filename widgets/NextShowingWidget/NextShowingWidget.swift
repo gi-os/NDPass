@@ -71,9 +71,9 @@ struct PosterView: View {
     let uiImage: UIImage
     var body: some View {
         if #available(iOSApplicationExtension 18.0, *) {
-            Image(uiImage: uiImage).resizable().widgetAccentedRenderingMode(.fullColor).aspectRatio(contentMode: .fill)
+            Image(uiImage: uiImage).resizable().widgetAccentedRenderingMode(.fullColor)
         } else {
-            Image(uiImage: uiImage).renderingMode(.original).resizable().aspectRatio(contentMode: .fill)
+            Image(uiImage: uiImage).renderingMode(.original).resizable()
         }
     }
 }
@@ -86,42 +86,49 @@ struct SmallWidgetView: View {
     
     var body: some View {
         if let showing = entry.showing {
-            GeometryReader { geo in
-                HStack(spacing: 0) {
-                    // Poster — fills all but the text strip
-                    Group {
-                        if let img = entry.posterImage {
-                            PosterView(uiImage: img)
-                        } else {
-                            Rectangle().fill(Color.white.opacity(0.06))
-                                .overlay { Image(systemName: "film").font(.system(size: 20)).foregroundStyle(.white.opacity(0.15)) }
-                        }
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                
+                // Poster — correct 2:3 aspect ratio with rounded corners
+                Group {
+                    if let img = entry.posterImage {
+                        PosterView(uiImage: img)
+                            .aspectRatio(2/3, contentMode: .fit)
+                    } else {
+                        Rectangle().fill(Color.white.opacity(0.06))
+                            .aspectRatio(2/3, contentMode: .fit)
+                            .overlay {
+                                Image(systemName: "film").font(.system(size: 18)).foregroundStyle(.white.opacity(0.15))
+                            }
                     }
-                    .frame(width: geo.size.width - 30, height: geo.size.height)
-                    .clipped()
-                    
-                    // Vertical text strip — two lines stacked, filling height
-                    ZStack {
-                        VStack(spacing: 0) {
-                            // Time — rotated, bottom half
-                            Text(showing.time)
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.white)
-                                .rotationEffect(.degrees(-90))
-                                .fixedSize()
-                                .frame(maxHeight: .infinity)
-                            
-                            // Countdown — rotated, top half
-                            Text(daysUntil(showing.date))
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundStyle(accent)
-                                .rotationEffect(.degrees(-90))
-                                .fixedSize()
-                                .frame(maxHeight: .infinity)
-                        }
-                    }
-                    .frame(width: 30, height: geo.size.height)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(maxHeight: .infinity)
+                .padding(.vertical, 4)
+                
+                // Vertical text — centered in remaining space
+                ZStack {
+                    VStack(spacing: 0) {
+                        // Time
+                        Text(showing.time)
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .rotationEffect(.degrees(-90))
+                            .fixedSize()
+                            .frame(maxHeight: .infinity)
+                        
+                        // Countdown
+                        Text(daysUntil(showing.date))
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(accent)
+                            .rotationEffect(.degrees(-90))
+                            .fixedSize()
+                            .frame(maxHeight: .infinity)
+                    }
+                }
+                .frame(width: 36)
+                
+                Spacer(minLength: 0)
             }
             .containerBackground(for: .widget) { darkBg }
         } else {
@@ -145,7 +152,7 @@ struct MediumWidgetView: View {
             HStack(spacing: 14) {
                 Group {
                     if let img = entry.posterImage {
-                        PosterView(uiImage: img)
+                        PosterView(uiImage: img).aspectRatio(2/3, contentMode: .fill)
                     } else {
                         Rectangle().fill(Color.white.opacity(0.06))
                             .overlay { Image(systemName: "film").foregroundStyle(.white.opacity(0.15)) }
