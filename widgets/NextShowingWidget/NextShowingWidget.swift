@@ -89,11 +89,10 @@ struct SmallWidgetView: View {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
                 
-                // Poster — correct 2:3 aspect ratio with rounded corners
+                // Poster — correct 2:3 aspect ratio
                 Group {
                     if let img = entry.posterImage {
-                        PosterView(uiImage: img)
-                            .aspectRatio(2/3, contentMode: .fit)
+                        PosterView(uiImage: img).aspectRatio(2/3, contentMode: .fit)
                     } else {
                         Rectangle().fill(Color.white.opacity(0.06))
                             .aspectRatio(2/3, contentMode: .fit)
@@ -106,20 +105,20 @@ struct SmallWidgetView: View {
                 .frame(maxHeight: .infinity)
                 .padding(.vertical, 4)
                 
-                // Vertical text — centered in remaining space
+                // Vertical text — title top, time bottom
                 ZStack {
                     VStack(spacing: 0) {
-                        // Time
-                        Text(showing.time)
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        // Movie title
+                        Text(showing.movieTitle)
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white)
                             .rotationEffect(.degrees(-90))
                             .fixedSize()
                             .frame(maxHeight: .infinity)
                         
-                        // Countdown
-                        Text(daysUntil(showing.date))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        // Time + countdown
+                        Text("\(daysUntil(showing.date)) \(showing.time)")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
                             .foregroundStyle(accent)
                             .rotationEffect(.degrees(-90))
                             .fixedSize()
