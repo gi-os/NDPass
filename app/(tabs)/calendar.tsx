@@ -12,6 +12,7 @@ import GlassCard from '@/components/GlassCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DAY_SIZE = Math.floor((SCREEN_W - Spacing.md * 2 - 6 * 4) / 7);
+const DAY_HEIGHT = Math.floor(DAY_SIZE * 1.4); // poster aspect ratio
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -116,16 +117,11 @@ export default function CalendarScreen() {
                   activeOpacity={0.7}
                 >
                   {hasTickets && dayTickets[0].posterPath ? (
-                    // Show poster as the day cell
                     <View style={styles.posterCell}>
                       <Image
                         source={{ uri: getPosterUrl(dayTickets[0].posterPath!, 'w185') }}
                         style={styles.posterCellImage}
                       />
-                      {/* Dark overlay for readability */}
-                      <View style={styles.posterCellOverlay}>
-                        <Text style={styles.posterCellDay}>{day}</Text>
-                      </View>
                       {dayTickets.length > 1 && (
                         <View style={styles.posterCellBadge}>
                           <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
@@ -212,9 +208,9 @@ const styles = StyleSheet.create({
 
   // Day cells
   dayCell: {
-    width: DAY_SIZE, height: DAY_SIZE,
+    width: DAY_SIZE, height: DAY_HEIGHT,
     justifyContent: 'center', alignItems: 'center',
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
     position: 'relative',
   },
   dayCellToday: {
@@ -229,7 +225,7 @@ const styles = StyleSheet.create({
   dayCellHasTicket: {
     width: '100%', height: '100%',
     backgroundColor: Colors.amberGlow,
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
     justifyContent: 'center', alignItems: 'center',
     position: 'relative',
   },
@@ -237,27 +233,16 @@ const styles = StyleSheet.create({
   dayTextToday: { color: Colors.cream, fontWeight: '700' },
   dayTextSelected: { color: Colors.amber, fontWeight: '700' },
 
-  // Poster cell — replaces day number with poster thumbnail
+  // Poster cell
   posterCell: {
     width: '100%', height: '100%',
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
     overflow: 'hidden',
     position: 'relative',
   },
   posterCellImage: {
     width: '100%', height: '100%',
     resizeMode: 'cover',
-  },
-  posterCellOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingBottom: 2,
-  },
-  posterCellDay: {
-    fontFamily: Typography.mono, fontSize: 9, fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
   },
   posterCellBadge: {
     position: 'absolute', top: 2, right: 2,

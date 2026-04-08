@@ -34,6 +34,7 @@ export default function RootLayout() {
             title: '',
             headerTransparent: true,
             headerBackTitle: 'Back',
+            contentStyle: { backgroundColor: 'transparent' },
           }}
         />
       </Stack>
