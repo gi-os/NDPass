@@ -100,14 +100,16 @@ class ShareViewController: UIViewController {
                         var imageData: Data?
                         
                         if let url = data as? URL {
-                            imageData = try? Data(contentsOf: url)
-                            if let d = imageData { image = UIImage(data: d) }
+                            if let d = try? Data(contentsOf: url), let img = UIImage(data: d) {
+                                image = img
+                                imageData = img.jpegData(compressionQuality: 0.7)
+                            }
                         } else if let img = data as? UIImage {
                             image = img
                             imageData = img.jpegData(compressionQuality: 0.7)
-                        } else if let rawData = data as? Data {
-                            image = UIImage(data: rawData)
-                            imageData = image?.jpegData(compressionQuality: 0.7) ?? rawData
+                        } else if let rawData = data as? Data, let img = UIImage(data: rawData) {
+                            image = img
+                            imageData = img.jpegData(compressionQuality: 0.7)
                         }
                         
                         guard let finalData = imageData else {
@@ -157,7 +159,8 @@ class ShareViewController: UIViewController {
     }
     
     private func openMainApp() {
-        let url = URL(string: "ndpass://scan/shared")!
+        // Just open the app — the scan tab checks for shared images on focus
+        let url = URL(string: "ndpass://")!
         var responder: UIResponder? = self
         while let r = responder {
             if let app = r as? UIApplication {

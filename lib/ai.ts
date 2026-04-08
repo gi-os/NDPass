@@ -60,9 +60,18 @@ export async function parseTicketImage(
     encoding: FileSystem.EncodingType.Base64,
   });
 
-  // Detect media type from URI
+  // Detect media type from URI and validate
   const lower = imageUri.toLowerCase();
-  const mediaType = (lower.includes('.png')) ? 'image/png' : 'image/jpeg';
+  let mediaType = 'image/jpeg';
+  if (lower.includes('.png')) mediaType = 'image/png';
+  else if (lower.includes('.webp')) mediaType = 'image/webp';
+  else if (lower.includes('.gif')) mediaType = 'image/gif';
+  else if (lower.includes('.heic') || lower.includes('.heif')) mediaType = 'image/jpeg'; // Claude doesn't support HEIC
+
+  // Validate base64 is actual image data (not empty or corrupt)
+  if (base64.length < 100) {
+    throw new Error('Image file appears to be empty or corrupt');
+  }
 
   const sizeKB = Math.round(base64.length / 1024);
   log(`Image: ${sizeKB}KB, ${mediaType}`);
