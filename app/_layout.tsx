@@ -1,8 +1,15 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/theme';
+import { updateWidget } from '@/lib/widget';
 
 export default function RootLayout() {
+  // Refresh widget data on every app launch
+  useEffect(() => {
+    updateWidget();
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />

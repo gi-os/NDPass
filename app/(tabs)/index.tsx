@@ -7,10 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Glass, Spacing, Radius, Typography } from '@/constants/theme';
-import { getActiveTickets, getArchivedTickets, groupTickets, deleteTicket } from '@/lib/database';
+import { getActiveTickets, getArchivedTickets, groupTickets, deleteTicket, updateTicket } from '@/lib/database';
 import { getPosterUrl, getBackdropUrl } from '@/lib/tmdb';
 import { formatDisplayDate } from '@/lib/utils';
 import { TicketGroup } from '@/lib/types';
+import { updateWidget } from '@/lib/widget';
 import GlassCard from '@/components/GlassCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -27,19 +28,39 @@ export default function HomeScreen() {
     const archived = await getArchivedTickets();
     setActiveGroups(groupTickets(active));
     setArchivedGroups(groupTickets(archived));
+    // Refresh widget on every load
+    await updateWidget();
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
-  const handleDelete = (group: TicketGroup) => {
-    Alert.alert('Delete', `Remove ${group.movieTitle}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        for (const t of group.tickets) await deleteTicket(t.id);
-        await load();
-      }},
-    ]);
+  const handleLongPress = (group: TicketGroup) => {
+    const isArchived = group.tickets[0]?.archived;
+    Alert.alert(
+      group.movieTitle,
+      undefined,
+      [
+        {
+          text: isArchived ? 'Unarchive' : 'Archive',
+          onPress: async () => {
+            for (const t of group.tickets) {
+              await updateTicket({ id: t.id, archived: !isArchived });
+            }
+            await load();
+          },
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            for (const t of group.tickets) await deleteTicket(t.id);
+            await load();
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const renderGroup = ({ item }: { item: TicketGroup }) => {
@@ -52,7 +73,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         activeOpacity={0.88}
         onPress={() => router.push(`/ticket/${firstTicket.id}`)}
-        onLongPress={() => handleDelete(item)}
+        onLongPress={() => handleLongPress(item)}
       >
         <View style={styles.movieCard}>
           {/* Background — backdrop or poster with gradient overlay */}
