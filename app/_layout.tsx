@@ -1,15 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, NativeModules } from 'react-native';
+import { Platform, NativeModules, AppState } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { updateWidget } from '@/lib/widget';
 
 export default function RootLayout() {
+  const appState = useRef(AppState.currentState);
+
   useEffect(() => {
     updateWidget();
-    // Check if launched from share extension — navigate to scan tab
     checkPendingShare();
+
+    // Also check when app returns to foreground (from share extension)
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        checkPendingShare();
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
   }, []);
 
   return (

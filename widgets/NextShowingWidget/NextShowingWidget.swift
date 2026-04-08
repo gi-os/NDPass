@@ -67,27 +67,18 @@ extension Color {
 
 let darkBg = Color(red: 0.03, green: 0.03, blue: 0.05)
 
-// Poster that keeps colors in ALL widget rendering modes (including transparent/tinted)
 struct PosterView: View {
     let uiImage: UIImage
-    var cornerRadius: CGFloat = 10
-    
     var body: some View {
         if #available(iOSApplicationExtension 18.0, *) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .widgetAccentedRenderingMode(.fullColor)
-                .aspectRatio(contentMode: .fill)
+            Image(uiImage: uiImage).resizable().widgetAccentedRenderingMode(.fullColor).aspectRatio(contentMode: .fill)
         } else {
-            Image(uiImage: uiImage)
-                .renderingMode(.original)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            Image(uiImage: uiImage).renderingMode(.original).resizable().aspectRatio(contentMode: .fill)
         }
     }
 }
 
-// MARK: - Small Widget — full bleed, uses all space
+// MARK: - Small Widget — poster fills space, vertical text on right edge
 
 struct SmallWidgetView: View {
     let entry: NextShowingEntry
@@ -96,42 +87,39 @@ struct SmallWidgetView: View {
     var body: some View {
         if let showing = entry.showing {
             HStack(spacing: 0) {
-                // Left: poster — fills left half edge to edge
+                // Poster — takes all space except thin right strip
                 Group {
                     if let img = entry.posterImage {
                         PosterView(uiImage: img)
                     } else {
                         Rectangle().fill(Color.white.opacity(0.06))
-                            .overlay { Image(systemName: "film").font(.system(size: 16)).foregroundStyle(.white.opacity(0.15)) }
+                            .overlay { Image(systemName: "film").font(.system(size: 20)).foregroundStyle(.white.opacity(0.15)) }
                     }
                 }
-                .frame(maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .padding(.trailing, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
                 
-                // Right: info
-                VStack(alignment: .leading, spacing: 0) {
+                // Vertical text strip — reads bottom to top
+                VStack(spacing: 4) {
                     Spacer(minLength: 0)
                     
-                    Text(showing.movieTitle)
-                        .font(.system(size: 12, weight: .bold))
+                    Text(showing.time)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(.white)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .rotationEffect(.degrees(-90))
+                        .fixedSize()
                     
-                    Spacer().frame(height: 8)
+                    Spacer(minLength: 4)
                     
                     Text(daysUntil(showing.date))
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundStyle(accent)
-                    
-                    Text(showing.time)
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                        .rotationEffect(.degrees(-90))
+                        .fixedSize()
                     
                     Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 28)
             }
             .containerBackground(for: .widget) { darkBg }
         } else {
