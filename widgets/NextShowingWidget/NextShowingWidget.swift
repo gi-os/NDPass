@@ -1,8 +1,6 @@
 import WidgetKit
 import SwiftUI
 
-// MARK: - Data
-
 struct NextShowing: Codable {
     let movieTitle: String
     let theater: String
@@ -12,8 +10,6 @@ struct NextShowing: Codable {
     let dominantColor: String?
 }
 
-// MARK: - Provider
-
 struct NextShowingProvider: TimelineProvider {
     func placeholder(in context: Context) -> NextShowingEntry {
         NextShowingEntry(date: Date(), showing: NextShowing(
@@ -21,12 +17,10 @@ struct NextShowingProvider: TimelineProvider {
             date: "2026-04-30", time: "7:30 PM", posterUrl: nil, dominantColor: "#E8A63A"
         ), posterImage: nil, relevance: nil)
     }
-    
     func getSnapshot(in context: Context, completion: @escaping (NextShowingEntry) -> Void) {
         let (s, img) = loadData()
         completion(NextShowingEntry(date: Date(), showing: s, posterImage: img, relevance: nil))
     }
-    
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextShowingEntry>) -> Void) {
         let (showing, img) = loadData()
         var entries = [NextShowingEntry(date: Date(), showing: showing, posterImage: img, relevance: nil)]
@@ -35,49 +29,35 @@ struct NextShowingProvider: TimelineProvider {
             if let st = fmt.date(from: "\(s.date) \(s.time)") {
                 for (mins, score): (Int, Float) in [(-180, 50), (-60, 100), (-30, 100)] {
                     let t = st.addingTimeInterval(TimeInterval(mins * 60))
-                    if t > Date() {
-                        entries.append(NextShowingEntry(date: t, showing: s, posterImage: img, relevance: TimelineEntryRelevance(score: score)))
-                    }
+                    if t > Date() { entries.append(NextShowingEntry(date: t, showing: s, posterImage: img, relevance: TimelineEntryRelevance(score: score))) }
                 }
             }
         }
         completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(1800))))
     }
-    
     private func loadData() -> (NextShowing?, UIImage?) {
         guard let d = UserDefaults(suiteName: "group.com.gios.ndpass") else { return (nil, nil) }
         var showing: NextShowing? = nil
-        if let str = d.string(forKey: "nextShowing"), !str.isEmpty,
-           let data = str.data(using: .utf8) {
+        if let str = d.string(forKey: "nextShowing"), !str.isEmpty, let data = str.data(using: .utf8) {
             showing = try? JSONDecoder().decode(NextShowing.self, from: data)
         }
         var image: UIImage? = nil
-        if let b64 = d.string(forKey: "widgetPosterBase64"), !b64.isEmpty,
-           let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters) {
+        if let b64 = d.string(forKey: "widgetPosterBase64"), !b64.isEmpty, let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters) {
             image = UIImage(data: data)
         }
         return (showing, image)
     }
 }
 
-// MARK: - Entry
-
 struct NextShowingEntry: TimelineEntry {
-    let date: Date
-    let showing: NextShowing?
-    let posterImage: UIImage?
-    let relevance: TimelineEntryRelevance?
+    let date: Date; let showing: NextShowing?; let posterImage: UIImage?; let relevance: TimelineEntryRelevance?
 }
-
-// MARK: - Helpers
 
 func daysUntil(_ dateStr: String) -> String {
     let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
     guard let target = fmt.date(from: dateStr) else { return dateStr }
     let diff = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: target)).day ?? 0
-    if diff == 0 { return "Today" }
-    if diff == 1 { return "Tomorrow" }
-    if diff < 0 { return "Past" }
+    if diff == 0 { return "Today" }; if diff == 1 { return "Tomorrow" }; if diff < 0 { return "Past" }
     return "In \(diff) days"
 }
 
@@ -93,9 +73,7 @@ let darkBg = Color(red: 0.03, green: 0.03, blue: 0.05)
 
 struct PosterImage: View {
     let uiImage: UIImage
-    var body: some View {
-        Image(uiImage: uiImage).renderingMode(.original).resizable()
-    }
+    var body: some View { Image(uiImage: uiImage).renderingMode(.original).resizable() }
 }
 
 // MARK: - Small Widget
@@ -108,52 +86,44 @@ struct SmallWidgetView: View {
         if let showing = entry.showing {
             GeometryReader { geo in
                 VStack(spacing: 0) {
-                    // Top: two columns — poster + info
+                    // Two columns: poster + time info
                     HStack(spacing: 6) {
-                        // Poster (smaller, ~38% width)
+                        // Poster — 45% width, fills height
                         Group {
                             if let img = entry.posterImage {
-                                PosterImage(uiImage: img)
-                                    .aspectRatio(contentMode: .fill)
+                                PosterImage(uiImage: img).aspectRatio(contentMode: .fill)
                             } else {
                                 Rectangle().fill(Color.white.opacity(0.06))
-                                    .overlay {
-                                        Image(systemName: "film").font(.system(size: 14)).foregroundStyle(.white.opacity(0.15))
-                                    }
+                                    .overlay { Image(systemName: "film").font(.system(size: 16)).foregroundStyle(.white.opacity(0.15)) }
                             }
                         }
-                        .frame(width: geo.size.width * 0.38, height: geo.size.height * 0.65)
+                        .frame(width: geo.size.width * 0.45, height: geo.size.height * 0.72)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         
-                        // Info column
-                        VStack(alignment: .leading, spacing: 4) {
+                        // Time info only
+                        VStack(alignment: .leading, spacing: 6) {
                             Spacer(minLength: 0)
                             
                             Text(daysUntil(showing.date))
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundStyle(accent)
                             
                             Text(showing.time)
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
                                 .foregroundStyle(.white)
-                            
-                            Text(showing.theater)
-                                .font(.system(size: 8, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.4))
-                                .lineLimit(2)
                             
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.horizontal, 8)
-                    .padding(.top, 8)
+                    .padding(.top, 6)
                     
                     Spacer(minLength: 0)
                     
-                    // Bottom: movie title
+                    // Title at bottom
                     Text(showing.movieTitle)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -183,38 +153,21 @@ struct MediumWidgetView: View {
             HStack(spacing: 14) {
                 Group {
                     if let img = entry.posterImage {
-                        PosterImage(uiImage: img)
-                            .aspectRatio(2/3, contentMode: .fill)
+                        PosterImage(uiImage: img).aspectRatio(2/3, contentMode: .fill)
                     } else {
                         Rectangle().fill(Color.white.opacity(0.06))
-                            .overlay {
-                                Image(systemName: "film").foregroundStyle(.white.opacity(0.15))
-                            }
+                            .overlay { Image(systemName: "film").foregroundStyle(.white.opacity(0.15)) }
                     }
                 }
                 .frame(width: 80, height: 120)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(showing.movieTitle)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    
-                    Text(showing.theater)
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(accent)
-                        .lineLimit(1)
-                    
+                    Text(showing.movieTitle).font(.system(size: 16, weight: .bold)).foregroundStyle(.white).lineLimit(2)
+                    Text(showing.theater).font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(accent).lineLimit(1)
                     Spacer(minLength: 2)
-                    
-                    Text(daysUntil(showing.date))
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.5))
-                    
-                    Text(showing.time)
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                    Text(daysUntil(showing.date)).font(.system(size: 11, weight: .semibold, design: .monospaced)).foregroundStyle(.white.opacity(0.5))
+                    Text(showing.time).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundStyle(.white)
                 }
                 Spacer(minLength: 0)
             }
@@ -233,8 +186,6 @@ struct MediumWidgetView: View {
         }
     }
 }
-
-// MARK: - Widget
 
 @main
 struct NextShowingWidget: Widget {
