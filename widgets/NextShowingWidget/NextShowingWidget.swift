@@ -2,12 +2,8 @@ import WidgetKit
 import SwiftUI
 
 struct NextShowing: Codable {
-    let movieTitle: String
-    let theater: String
-    let date: String
-    let time: String
-    let posterUrl: String?
-    let dominantColor: String?
+    let movieTitle: String; let theater: String; let date: String; let time: String
+    let posterUrl: String?; let dominantColor: String?
 }
 
 struct NextShowingProvider: TimelineProvider {
@@ -71,12 +67,27 @@ extension Color {
 
 let darkBg = Color(red: 0.03, green: 0.03, blue: 0.05)
 
-struct PosterImage: View {
+// Poster that keeps colors in ALL widget rendering modes (including transparent/tinted)
+struct PosterView: View {
     let uiImage: UIImage
-    var body: some View { Image(uiImage: uiImage).renderingMode(.original).resizable() }
+    var cornerRadius: CGFloat = 10
+    
+    var body: some View {
+        if #available(iOSApplicationExtension 18.0, *) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .widgetAccentedRenderingMode(.fullColor)
+                .aspectRatio(contentMode: .fill)
+        } else {
+            Image(uiImage: uiImage)
+                .renderingMode(.original)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        }
+    }
 }
 
-// MARK: - Small Widget
+// MARK: - Small Widget — full bleed, uses all space
 
 struct SmallWidgetView: View {
     let entry: NextShowingEntry
@@ -84,52 +95,43 @@ struct SmallWidgetView: View {
     
     var body: some View {
         if let showing = entry.showing {
-            GeometryReader { geo in
-                VStack(spacing: 0) {
-                    // Two columns: poster + time info
-                    HStack(spacing: 6) {
-                        // Poster — 45% width, fills height
-                        Group {
-                            if let img = entry.posterImage {
-                                PosterImage(uiImage: img).aspectRatio(contentMode: .fill)
-                            } else {
-                                Rectangle().fill(Color.white.opacity(0.06))
-                                    .overlay { Image(systemName: "film").font(.system(size: 16)).foregroundStyle(.white.opacity(0.15)) }
-                            }
-                        }
-                        .frame(width: geo.size.width * 0.45, height: geo.size.height * 0.72)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
-                        // Time info only
-                        VStack(alignment: .leading, spacing: 6) {
-                            Spacer(minLength: 0)
-                            
-                            Text(daysUntil(showing.date))
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundStyle(accent)
-                            
-                            Text(showing.time)
-                                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.white)
-                            
-                            Spacer(minLength: 0)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 0) {
+                // Left: poster — fills left half edge to edge
+                Group {
+                    if let img = entry.posterImage {
+                        PosterView(uiImage: img)
+                    } else {
+                        Rectangle().fill(Color.white.opacity(0.06))
+                            .overlay { Image(systemName: "film").font(.system(size: 16)).foregroundStyle(.white.opacity(0.15)) }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.top, 6)
-                    
+                }
+                .frame(maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.trailing, 6)
+                
+                // Right: info
+                VStack(alignment: .leading, spacing: 0) {
                     Spacer(minLength: 0)
                     
-                    // Title at bottom
                     Text(showing.movieTitle)
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 8)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    Spacer().frame(height: 8)
+                    
+                    Text(daysUntil(showing.date))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
+                    
+                    Text(showing.time)
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                    
+                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .containerBackground(for: .widget) { darkBg }
         } else {
@@ -153,7 +155,7 @@ struct MediumWidgetView: View {
             HStack(spacing: 14) {
                 Group {
                     if let img = entry.posterImage {
-                        PosterImage(uiImage: img).aspectRatio(2/3, contentMode: .fill)
+                        PosterView(uiImage: img)
                     } else {
                         Rectangle().fill(Color.white.opacity(0.06))
                             .overlay { Image(systemName: "film").foregroundStyle(.white.opacity(0.15)) }
