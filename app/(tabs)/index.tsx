@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, Image, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, ImageBackground, Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -130,7 +131,7 @@ export default function HomeScreen() {
   const data = showArchive ? archivedGroups : activeGroups;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Archive toggle */}
       {archivedGroups.length > 0 && (
         <View style={styles.toggleRow}>
@@ -172,7 +173,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cream} />}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
