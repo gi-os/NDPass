@@ -53,8 +53,8 @@ func daysUntil(_ dateStr: String) -> String {
     let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
     guard let target = fmt.date(from: dateStr) else { return dateStr }
     let diff = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: target)).day ?? 0
-    if diff == 0 { return "Today" }; if diff == 1 { return "Tomorrow" }; if diff < 0 { return "Past" }
-    return "In \(diff) days"
+    if diff == 0 { return "TODAY" }; if diff == 1 { return "TMRW" }; if diff < 0 { return "PAST" }
+    return "IN \(diff)D"
 }
 
 extension Color {
@@ -88,7 +88,7 @@ struct SmallWidgetView: View {
         if let showing = entry.showing {
             GeometryReader { geo in
                 HStack(spacing: 0) {
-                    // Poster
+                    // Poster — fills all but the text strip
                     Group {
                         if let img = entry.posterImage {
                             PosterView(uiImage: img)
@@ -97,19 +97,30 @@ struct SmallWidgetView: View {
                                 .overlay { Image(systemName: "film").font(.system(size: 20)).foregroundStyle(.white.opacity(0.15)) }
                         }
                     }
-                    .frame(width: geo.size.width - 32, height: geo.size.height)
+                    .frame(width: geo.size.width - 30, height: geo.size.height)
                     .clipped()
                     
-                    // Vertical text — fills the full height
+                    // Vertical text strip — two lines stacked, filling height
                     ZStack {
-                        // Countdown — rotated, fills the strip
-                        Text("\(daysUntil(showing.date))  ·  \(showing.time)")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white)
-                            .rotationEffect(.degrees(-90))
-                            .fixedSize()
+                        VStack(spacing: 0) {
+                            // Time — rotated, bottom half
+                            Text(showing.time)
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white)
+                                .rotationEffect(.degrees(-90))
+                                .fixedSize()
+                                .frame(maxHeight: .infinity)
+                            
+                            // Countdown — rotated, top half
+                            Text(daysUntil(showing.date))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(accent)
+                                .rotationEffect(.degrees(-90))
+                                .fixedSize()
+                                .frame(maxHeight: .infinity)
+                        }
                     }
-                    .frame(width: 32, height: geo.size.height)
+                    .frame(width: 30, height: geo.size.height)
                 }
             }
             .containerBackground(for: .widget) { darkBg }

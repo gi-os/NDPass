@@ -8,9 +8,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: 'transparent', shadowColor: 'transparent', elevation: 0 },
-        headerTransparent: true,
-        headerBlurEffect: 'dark',
+        headerStyle: { backgroundColor: Colors.bg, shadowColor: 'transparent', elevation: 0 },
         headerTintColor: Colors.cream,
         headerTitleStyle: { fontFamily: 'Courier', fontWeight: '700', fontSize: 18, letterSpacing: 0.5 },
         tabBarStyle: {
@@ -23,7 +21,6 @@ export default function TabLayout() {
         tabBarBackground: () => (
           <View style={StyleSheet.absoluteFill}>
             <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={{ position: 'absolute', top: 0, left: 24, right: 24, height: 0.5, backgroundColor: Colors.glassHighlight }} />
           </View>
         ),
         tabBarActiveTintColor: Colors.amber,

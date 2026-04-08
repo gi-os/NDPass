@@ -19,8 +19,6 @@ export default function GlassCard({ children, style, intensity = 30, elevated = 
 
   return (
     <View style={[styles.container, glassStyle, { borderRadius: Radius.card }, style]}>
-      {/* Top edge highlight — simulates light catching glass edge */}
-      <View style={styles.topHighlight} />
       {children}
     </View>
   );
@@ -30,14 +28,5 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
     position: 'relative',
-  },
-  topHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
-    height: 1,
-    backgroundColor: Colors.glassHighlight,
-    borderRadius: 1,
   },
 });
