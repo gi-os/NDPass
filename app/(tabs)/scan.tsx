@@ -121,6 +121,14 @@ export default function ScanScreen() {
     addLog('Saving stub...');
 
     try {
+      // Copy image to persistent documents directory
+      const ticketId = generateId();
+      const ticketsDir = `${FileSystem.documentDirectory}tickets/`;
+      await FileSystem.makeDirectoryAsync(ticketsDir, { intermediates: true }).catch(() => {});
+      const permanentUri = `${ticketsDir}${ticketId}.jpg`;
+      await FileSystem.copyAsync({ from: imageUri, to: permanentUri });
+      addLog('✓ Image saved permanently');
+
       const notificationIds = await scheduleReminders(movieTitle, theater, date, time);
       if (notificationIds) {
         const count = notificationIds.split(',').length;
@@ -130,11 +138,11 @@ export default function ScanScreen() {
       }
 
       await insertTicket({
-        id: generateId(),
+        id: ticketId,
         movieTitle, theater, date, time,
         seat: seat || undefined,
         price: price || undefined,
-        imageUri,
+        imageUri: permanentUri,
         createdAt: new Date().toISOString(),
         notificationIds: notificationIds ?? undefined,
         posterPath, backdropPath, tmdbId,
