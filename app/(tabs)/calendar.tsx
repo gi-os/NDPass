@@ -116,30 +116,35 @@ export default function CalendarScreen() {
                   onPress={() => setSelectedDate(dateStr)}
                   activeOpacity={0.7}
                 >
-                  {hasTickets && dayTickets[0].posterPath ? (
-                    <View style={styles.posterCell}>
-                      <Image
-                        source={{ uri: getPosterUrl(dayTickets[0].posterPath!, 'w185') }}
-                        style={styles.posterCellImage}
-                      />
-                      {dayTickets.length > 1 && (
-                        <View style={styles.posterCellBadge}>
-                          <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
+                  {hasTickets && (() => {
+                    const withPoster = dayTickets.find(t => t.posterPath);
+                    if (withPoster) {
+                      return (
+                        <View style={styles.posterCell}>
+                          <Image
+                            source={{ uri: getPosterUrl(withPoster.posterPath!, 'w185') }}
+                            style={styles.posterCellImage}
+                          />
+                          {dayTickets.length > 1 && (
+                            <View style={styles.posterCellBadge}>
+                              <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
+                            </View>
+                          )}
                         </View>
-                      )}
-                    </View>
-                  ) : hasTickets ? (
-                    // Has tickets but no poster — amber bg with day number
-                    <View style={styles.dayCellHasTicket}>
-                      <Text style={[styles.dayText, styles.dayTextToday]}>{day}</Text>
-                      {dayTickets.length > 1 && (
-                        <View style={styles.posterCellBadge}>
-                          <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
-                        </View>
-                      )}
-                    </View>
-                  ) : (
-                    // Normal day
+                      );
+                    }
+                    return (
+                      <View style={styles.dayCellHasTicket}>
+                        <Text style={[styles.dayText, styles.dayTextToday]}>{day}</Text>
+                        {dayTickets.length > 1 && (
+                          <View style={styles.posterCellBadge}>
+                            <Text style={styles.posterCellBadgeText}>{dayTickets.length}+</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })()}
+                  {!hasTickets && (
                     <Text style={[
                       styles.dayText,
                       isToday && styles.dayTextToday,
