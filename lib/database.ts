@@ -21,6 +21,7 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
         createdAt TEXT NOT NULL,
         notificationIds TEXT,
         notes TEXT,
+        overview TEXT,
         posterPath TEXT,
         backdropPath TEXT,
         tmdbId INTEGER,
@@ -32,6 +33,13 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
         value TEXT NOT NULL
       );
     `);
+
+    // Migration: add overview column if missing
+    try {
+      await db.runAsync('ALTER TABLE tickets ADD COLUMN overview TEXT');
+    } catch {
+      // Column already exists
+    }
 
     // Auto-archive past tickets
     await archivePastTickets();
@@ -55,12 +63,12 @@ export async function insertTicket(ticket: Ticket): Promise<void> {
   const database = await getDB();
   const groupKey = `${ticket.movieTitle}|${ticket.theater}|${ticket.date}|${ticket.time}`;
   await database.runAsync(
-    `INSERT INTO tickets (id, movieTitle, theater, date, time, seat, price, imageUri, createdAt, notificationIds, notes, posterPath, backdropPath, tmdbId, archived, groupKey)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tickets (id, movieTitle, theater, date, time, seat, price, imageUri, createdAt, notificationIds, notes, overview, posterPath, backdropPath, tmdbId, archived, groupKey)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       ticket.id, ticket.movieTitle, ticket.theater, ticket.date, ticket.time,
       ticket.seat ?? null, ticket.price ?? null, ticket.imageUri, ticket.createdAt,
-      ticket.notificationIds ?? null, ticket.notes ?? null,
+      ticket.notificationIds ?? null, ticket.notes ?? null, ticket.overview ?? null,
       ticket.posterPath ?? null, ticket.backdropPath ?? null, ticket.tmdbId ?? null,
       ticket.archived ? 1 : 0, groupKey,
     ]
@@ -106,7 +114,7 @@ export async function updateTicket(ticket: Partial<Ticket> & { id: string }): Pr
   const values: any[] = [];
   const updatable = [
     'movieTitle', 'theater', 'date', 'time', 'seat', 'price',
-    'notificationIds', 'notes', 'posterPath', 'backdropPath', 'tmdbId', 'archived', 'groupKey',
+    'notificationIds', 'notes', 'overview', 'posterPath', 'backdropPath', 'tmdbId', 'archived', 'groupKey',
   ] as const;
 
   for (const key of updatable) {
@@ -225,6 +233,7 @@ function mapRow(row: any): Ticket {
     tmdbId: row.tmdbId ?? undefined,
     posterPath: row.posterPath ?? undefined,
     backdropPath: row.backdropPath ?? undefined,
+    overview: row.overview ?? undefined,
     groupKey: row.groupKey ?? undefined,
   };
 }

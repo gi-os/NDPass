@@ -29,3 +29,16 @@ export function formatDisplayDate(dateStr: string): string {
     year: 'numeric',
   });
 }
+
+/**
+ * Convert string to Title Case (e.g. "METROGRAPH" → "Metrograph")
+ */
+export function toTitleCase(str: string): string {
+  if (!str) return str;
+  // If it's mixed case already (like "IFC Center"), leave it
+  const hasLower = /[a-z]/.test(str);
+  const hasUpper = /[A-Z]/.test(str);
+  if (hasLower && hasUpper) return str;
+  // All caps or all lower — title case it
+  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}

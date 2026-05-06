@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Image, TextInput, StyleSheet,
   ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  Modal, FlatList,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -10,12 +11,12 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Colors, Spacing, Radius, Typography } from '@/constants/theme';
 import { parseTicketImage } from '@/lib/ai';
-import { insertTicket } from '@/lib/database';
+import { insertTicket, getDB } from '@/lib/database';
 import { scheduleReminders } from '@/lib/notifications';
-import { searchMovie, getPosterUrl } from '@/lib/tmdb';
+import { searchMovie, searchMovies, getPosterUrl, TmdbMovie } from '@/lib/tmdb';
 import { updateWidget } from '@/lib/widget';
 import { checkForSharedImage } from '@/lib/share';
-import { generateId } from '@/lib/utils';
+import { generateId, toTitleCase } from '@/lib/utils';
 import { ParsedTicketData } from '@/lib/types';
 
 type ScanState = 'idle' | 'loading' | 'review' | 'saving';
@@ -37,6 +38,9 @@ export default function ScanScreen() {
   const [posterPath, setPosterPath] = useState<string | undefined>();
   const [backdropPath, setBackdropPath] = useState<string | undefined>();
   const [tmdbId, setTmdbId] = useState<number | undefined>();
+  const [overview, setOverview] = useState('');
+  const [movieResults, setMovieResults] = useState<TmdbMovie[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
 
   const addLog = (msg: string) => {
     const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -56,7 +60,7 @@ export default function ScanScreen() {
       const data = await parseTicketImage(uri, addLog);
       setParsed(data);
       setMovieTitle(data.movieTitle);
-      setTheater(data.theater);
+      setTheater(toTitleCase(data.theater));
       setDate(data.date);
       setTime(data.time);
       setSeat(data.seat ?? '');
@@ -64,12 +68,15 @@ export default function ScanScreen() {
       addLog(`✓ Parsed: ${data.movieTitle}`);
 
       addLog('Looking up poster...');
-      const movie = await searchMovie(data.movieTitle);
-      if (movie?.posterPath) {
-        setPosterPath(movie.posterPath);
+      const movies = await searchMovies(data.movieTitle);
+      setMovieResults(movies);
+      if (movies.length > 0) {
+        const movie = movies[0];
+        setPosterPath(movie.posterPath ?? undefined);
         setBackdropPath(movie.backdropPath ?? undefined);
         setTmdbId(movie.id);
-        addLog(`✓ Found poster: ${movie.title}`);
+        setOverview(movie.overview);
+        addLog(`✓ Found: ${movie.title}${movies.length > 1 ? ` (+${movies.length - 1} more)` : ''}`);
       } else {
         addLog('No poster found on TMDb');
       }
@@ -129,22 +136,36 @@ export default function ScanScreen() {
       await FileSystem.copyAsync({ from: imageUri, to: permanentUri });
       addLog('✓ Image saved permanently');
 
-      const notificationIds = await scheduleReminders(movieTitle, theater, date, time);
-      if (notificationIds) {
-        const count = notificationIds.split(',').length;
-        addLog(`✓ ${count} reminder(s) scheduled`);
+      // Only schedule notifications if no other ticket for this showing already has them
+      const db = await getDB();
+      const groupKey = `${movieTitle}|${theater}|${date}|${time}`;
+      const existingNotif = await db.getFirstAsync<{ notificationIds: string }>(
+        'SELECT notificationIds FROM tickets WHERE groupKey = ? AND notificationIds IS NOT NULL LIMIT 1',
+        [groupKey]
+      );
+      
+      let notificationIds: string | null = null;
+      if (!existingNotif) {
+        notificationIds = await scheduleReminders(movieTitle, theater, date, time);
+        if (notificationIds) {
+          const count = notificationIds.split(',').length;
+          addLog(`✓ ${count} reminder(s) scheduled`);
+        } else {
+          addLog('No reminders (showtime passed)');
+        }
       } else {
-        addLog('No reminders (showtime passed)');
+        addLog('Reminders already set for this showing');
       }
 
       await insertTicket({
         id: ticketId,
-        movieTitle, theater, date, time,
+        movieTitle, theater: toTitleCase(theater), date, time,
         seat: seat || undefined,
         price: price || undefined,
         imageUri: permanentUri,
         createdAt: new Date().toISOString(),
         notificationIds: notificationIds ?? undefined,
+        overview: overview || undefined,
         posterPath, backdropPath, tmdbId,
         archived: false,
       });
@@ -247,6 +268,12 @@ export default function ScanScreen() {
 
         <View style={styles.formSection}>
           <FieldInput label="MOVIE" value={movieTitle} onChangeText={setMovieTitle} />
+          {movieResults.length > 1 && (
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowPicker(true)}>
+              <Ionicons name="film-outline" size={14} color={Colors.amber} />
+              <Text style={styles.pickerButtonText}>Wrong movie? Pick from {movieResults.length} results</Text>
+            </TouchableOpacity>
+          )}
           <FieldInput label="THEATER" value={theater} onChangeText={setTheater} />
           <View style={styles.fieldRow}>
             <FieldInput label="DATE" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" half />
@@ -270,6 +297,43 @@ export default function ScanScreen() {
         </View>
         <DebugTerminal />
       </ScrollView>
+
+      {/* Movie Picker Modal */}
+      <Modal visible={showPicker} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Pick the right movie</Text>
+              <TouchableOpacity onPress={() => setShowPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.cream} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={movieResults}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.pickerItem} onPress={() => {
+                  setPosterPath(item.posterPath ?? undefined);
+                  setBackdropPath(item.backdropPath ?? undefined);
+                  setTmdbId(item.id);
+                  setOverview(item.overview);
+                  setMovieTitle(item.title);
+                  setShowPicker(false);
+                }}>
+                  {item.posterPath && (
+                    <Image source={{ uri: getPosterUrl(item.posterPath, 'w185') }} style={styles.pickerPoster} />
+                  )}
+                  <View style={styles.pickerInfo}>
+                    <Text style={styles.pickerMovieTitle} numberOfLines={2}>{item.title}</Text>
+                    {item.releaseDate ? <Text style={styles.pickerYear}>{item.releaseDate.split('-')[0]}</Text> : null}
+                    {item.overview ? <Text style={styles.pickerOverviewText} numberOfLines={2}>{item.overview}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -331,4 +395,18 @@ const styles = StyleSheet.create({
   terminalLine: { fontFamily: Typography.mono, fontSize: 11, color: Colors.textSecondary, lineHeight: 18 },
   terminalError: { color: Colors.red },
   terminalSuccess: { color: Colors.green },
+
+  // Movie picker
+  pickerButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, marginTop: -4 },
+  pickerButtonText: { fontFamily: Typography.mono, fontSize: 11, color: Colors.amber },
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  pickerContainer: { backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.lg, borderBottomWidth: 0.5, borderBottomColor: Colors.glassBorder },
+  pickerTitle: { fontFamily: Typography.mono, fontSize: 14, fontWeight: '700', color: Colors.cream, letterSpacing: 1 },
+  pickerItem: { flexDirection: 'row', padding: Spacing.md, gap: Spacing.md, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  pickerPoster: { width: 50, height: 75, borderRadius: 6, backgroundColor: Colors.glass },
+  pickerInfo: { flex: 1, gap: 2 },
+  pickerMovieTitle: { fontFamily: Typography.body, fontSize: 15, fontWeight: '600', color: Colors.cream },
+  pickerYear: { fontFamily: Typography.mono, fontSize: 11, color: Colors.textMuted },
+  pickerOverviewText: { fontFamily: Typography.mono, fontSize: 10, color: Colors.textSecondary, lineHeight: 14, marginTop: 2 },
 });

@@ -208,6 +208,14 @@ export default function TicketDetail() {
           </GlassCard>
         )}
 
+        {/* Overview */}
+        {!editing && ticket.overview && (
+          <GlassCard style={styles.detailsCard}>
+            <Text style={styles.detailsTitle}>ABOUT</Text>
+            <Text style={styles.overviewText}>{ticket.overview}</Text>
+          </GlassCard>
+        )}
+
         {/* Tickets */}
         {!editing && (
           <>
@@ -320,6 +328,7 @@ const styles = StyleSheet.create({
   detailValue: { fontFamily: Typography.mono, fontSize: 13, color: Colors.cream },
   archivedBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md },
   archivedText: { fontFamily: Typography.mono, fontSize: 11, color: Colors.textSecondary },
+  overviewText: { fontFamily: Typography.body, fontSize: 14, color: Colors.textSecondary, lineHeight: 22 },
 
   sectionLabel: { fontFamily: Typography.mono, fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 2, paddingHorizontal: Spacing.lg, marginBottom: 2 },
   sectionHint: { fontFamily: Typography.mono, fontSize: 10, color: Colors.textMuted, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },

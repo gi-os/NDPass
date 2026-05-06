@@ -10,6 +10,7 @@ export interface Ticket {
   createdAt: string;
   notificationIds?: string; // comma-separated notification IDs
   notes?: string;
+  overview?: string;   // TMDb movie description
   // TMDb data
   posterPath?: string;
   backdropPath?: string;

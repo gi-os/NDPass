@@ -17,11 +17,16 @@ async function getTmdbKey(): Promise<string | null> {
 }
 
 export async function searchMovie(title: string): Promise<TmdbMovie | null> {
+  const results = await searchMovies(title);
+  return results.length > 0 ? results[0] : null;
+}
+
+export async function searchMovies(title: string, limit: number = 5): Promise<TmdbMovie[]> {
   try {
     const key = await getTmdbKey();
     if (!key) {
       console.log('[NDPass] No TMDb API key — skip poster lookup. Add one in Settings.');
-      return null;
+      return [];
     }
 
     const query = encodeURIComponent(title);
@@ -30,25 +35,24 @@ export async function searchMovie(title: string): Promise<TmdbMovie | null> {
     );
     if (!resp.ok) {
       console.log('[NDPass] TMDb error:', resp.status);
-      return null;
+      return [];
     }
 
     const data = await resp.json();
     const results = data.results;
-    if (!results || results.length === 0) return null;
+    if (!results || results.length === 0) return [];
 
-    const movie = results[0];
-    return {
+    return results.slice(0, limit).map((movie: any) => ({
       id: movie.id,
       title: movie.title,
       posterPath: movie.poster_path,
       backdropPath: movie.backdrop_path,
       releaseDate: movie.release_date ?? '',
       overview: movie.overview ?? '',
-    };
+    }));
   } catch (err) {
     console.log('[NDPass] TMDb search failed:', err);
-    return null;
+    return [];
   }
 }
 
