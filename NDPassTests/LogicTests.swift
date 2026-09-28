@@ -117,3 +117,18 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(p.code, "")
     }
 }
+
+final class StubShapeTests: XCTestCase {
+    /// The top-left corner used to be skipped: the path closed with a straight line.
+    func testAllFourCornersAreRounded() {
+        let r = CGRect(x: 0, y: 0, width: 300, height: 200)
+        let p = StubShape(corner: 28, notch: 14, at: 0.5).path(in: r)
+        XCTAssertFalse(p.contains(CGPoint(x: 2, y: 2)), "top-left corner should be cut round")
+        XCTAssertFalse(p.contains(CGPoint(x: 298, y: 2)))
+        XCTAssertFalse(p.contains(CGPoint(x: 2, y: 198)))
+        XCTAssertFalse(p.contains(CGPoint(x: 298, y: 198)))
+        XCTAssertTrue(p.contains(CGPoint(x: 30, y: 10)))
+        XCTAssertFalse(p.contains(CGPoint(x: 3, y: 100)), "left notch")
+        XCTAssertTrue(p.contains(CGPoint(x: 150, y: 100)))
+    }
+}

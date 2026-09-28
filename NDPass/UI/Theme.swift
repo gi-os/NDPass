@@ -66,6 +66,8 @@ struct StubShape: Shape {
         p.addArc(center: CGPoint(x: r.minX + c, y: r.maxY - c), radius: c, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
         p.addLine(to: CGPoint(x: r.minX, y: y + n))
         p.addArc(center: CGPoint(x: r.minX, y: y), radius: n, startAngle: .degrees(90), endAngle: .degrees(270), clockwise: true)
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + c))
+        p.addArc(center: CGPoint(x: r.minX + c, y: r.minY + c), radius: c, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
         p.closeSubpath()
         return p
     }
