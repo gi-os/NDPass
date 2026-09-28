@@ -7,6 +7,7 @@ final class ScreenshotTests: XCTestCase {
         let app = XCUIApplication()
         setupSnapshot(app)
         app.launchArguments += ["-demo"]
+        app.launchEnvironment["TZ"] = "America/New_York"
         app.launch()
         sleep(3)
         snapshot("01-Tonight")

@@ -22,7 +22,10 @@ enum Demo {
     }
 
     @MainActor static func seed(_ ctx: ModelContext) {
-        let soon = Date().addingTimeInterval(3 * 3600 + 12 * 60)
+        // An evening showing later today: 7:30 PM, or an hour from now if that's passed.
+        let cal = Calendar.current
+        let evening = cal.date(bySettingHour: 19, minute: 30, second: 0, of: Date())!
+        let soon = max(evening, Date().addingTimeInterval(3600))
         let tf = DateFormatter(); tf.locale = Locale(identifier: "en_US_POSIX"); tf.dateFormat = "h:mm a"
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd"
         let tonight = (df.string(from: soon), tf.string(from: soon))
@@ -52,12 +55,21 @@ enum Demo {
                 p.art = art == .game ? EventArt.matchCard("Harbor", "Ironside").jpegData(compressionQuality: 0.9) : poster(art)
                 p.scannedCode = "NDP-\(title.prefix(3).uppercased())-\(seat.filter(\.isLetter))\(seat.filter(\.isNumber))-2026"
                 p.scannedFormat = .qr
-                p.overview = kind == .movie ? "A demo ticket for the App Store screenshots." : nil
+                p.overview = kind == .movie ? blurbs[title] : nil
                 ctx.insert(p)
             }
         }
         try? ctx.save()
     }
+
+    static let blurbs: [String: String] = [
+        "Low Tide": "A lighthouse keeper's last summer on a coast that is slowly being given back to the sea.",
+        "The Quiet Year": "One winter in a mountain town where nobody says what they mean, and everyone hears it anyway.",
+        "Neon Almanac": "Twelve nights, twelve cities, one taxi driver who never learned to sleep.",
+        "Paper Moons": "Two sisters restore a shuttered planetarium and find their mother's notes in the margins.",
+        "Red Summer": "A heatwave, a closed pool and the longest August on record.",
+        "Dot Matrix": "An office printer starts writing letters of its own."
+    ]
 
     enum Art { case tide, snow, neon, moons, sun, dots, game }
 
