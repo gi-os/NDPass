@@ -47,6 +47,7 @@ final class Pass {
     var isArchived: Bool { PassTimes.isArchived(date: date, time: time, runtime: runtime) }
     var sortDate: Date { start ?? PassTimes.day(date) ?? createdAt }
     var posterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w500\($0)") } }
+    var bigPosterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w780\($0)") } }
     var backdropURL: URL? { backdropPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w780\($0)") } }
 
     /// Same kind, title, venue, date and time: the same showing.

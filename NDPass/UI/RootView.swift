@@ -8,12 +8,14 @@ struct RootView: View {
 
     var body: some View {
         TabView {
-            Tab("Tickets", systemImage: "ticket") { TicketsView().environmentObject(importer) }
+            Tab("Tonight", systemImage: "ticket") { TonightView() }
+            Tab("Collection", systemImage: "square.grid.2x2") { CollectionView() }
             Tab("Calendar", systemImage: "calendar") { CalendarView() }
             Tab("Stats", systemImage: "chart.bar") { StatsView() }
             Tab("Settings", systemImage: "gearshape") { SettingsView() }
         }
-        .tint(Theme.cream)
+        .environmentObject(importer)
+        .tint(Theme.accent)
         .preferredColorScheme(.dark)
         .onAppear {
             Reminders.requestAccess()
