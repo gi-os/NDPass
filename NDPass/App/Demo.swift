@@ -9,7 +9,7 @@ enum Demo {
         return a.contains("-demo") || a.contains("-FASTLANE_SNAPSHOT")
     }
 
-    static func container() -> ModelContainer {
+    @MainActor static func container() -> ModelContainer {
         let c = try! ModelContainer(for: Pass.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         seed(c.mainContext)
         return c
@@ -21,7 +21,7 @@ enum Demo {
         return (f.string(from: d), time)
     }
 
-    static func seed(_ ctx: ModelContext) {
+    @MainActor static func seed(_ ctx: ModelContext) {
         let soon = Date().addingTimeInterval(3 * 3600 + 12 * 60)
         let tf = DateFormatter(); tf.locale = Locale(identifier: "en_US_POSIX"); tf.dateFormat = "h:mm a"
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd"
