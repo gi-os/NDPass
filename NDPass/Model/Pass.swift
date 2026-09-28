@@ -1,0 +1,57 @@
+import Foundation
+import SwiftData
+
+enum EventKind: String, Codable, CaseIterable { case movie, sports, concert }
+
+/// One ticket. Several tickets for the same showing share a `group`, and the list shows the
+/// group as one card.
+@Model
+final class Pass {
+    var id: UUID = UUID()
+    var group: UUID = UUID()
+    var kindRaw: String = EventKind.movie.rawValue
+    var title: String = ""
+    var venue: String = ""
+    var date: String = ""       // yyyy-MM-dd
+    var time: String = ""       // h:mm AM
+    var seat: String = ""
+    var price: String = ""
+    var bookingCode: String = ""
+    var confidence: Double = 0
+    @Attribute(.externalStorage) var photo: Data?
+    @Attribute(.externalStorage) var crop: Data?
+    @Attribute(.externalStorage) var art: Data?
+    var tmdbID: Int?
+    var posterPath: String?
+    var backdropPath: String?
+    var overview: String?
+    var runtime: Int?
+    var scannedCode: String?
+    var scannedFormatRaw: String?
+    var sourceURL: String?
+    var createdAt: Date = Date()
+
+    init(title: String = "") { self.title = title }
+
+    var kind: EventKind {
+        get { EventKind(rawValue: kindRaw) ?? .movie }
+        set { kindRaw = newValue.rawValue }
+    }
+
+    var scannedFormat: Symbology? {
+        get { scannedFormatRaw.flatMap(Symbology.init(rawValue:)) }
+        set { scannedFormatRaw = newValue?.rawValue }
+    }
+
+    var start: Date? { PassTimes.start(date: date, time: time) }
+    var isArchived: Bool { PassTimes.isArchived(date: date, time: time, runtime: runtime) }
+    var sortDate: Date { start ?? PassTimes.day(date) ?? createdAt }
+    var posterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w500\($0)") } }
+    var backdropURL: URL? { backdropPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w780\($0)") } }
+
+    /// Same kind, title, venue, date and time: the same showing.
+    func sameShowing(as other: Pass) -> Bool {
+        kind == other.kind && title.lowercased() == other.title.lowercased() && date == other.date && time == other.time
+            && venue.lowercased() == other.venue.lowercased()
+    }
+}

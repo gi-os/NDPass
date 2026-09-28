@@ -1,0 +1,103 @@
+import UIKit
+import SwiftData
+
+/// Photo → Claude → crop → the ticket's own code → poster → saved, one at a time, off the
+/// main thread. Every step is logged so a failed scan says where it stopped.
+@MainActor
+final class Importer: ObservableObject {
+    @Published private(set) var busy = false
+    @Published private(set) var log: [String] = []
+    @Published var lastError: String?
+
+    func add(_ image: UIImage, sourceURL: String? = nil, into ctx: ModelContext) async -> Pass? {
+        busy = true
+        log = []
+        lastError = nil
+        defer { busy = false }
+        let upright = Self.upright(image)
+        step("Reading the ticket…")
+        var parsed = Parsed()
+        do {
+            parsed = try await Parser.parse(upright, key: Keys.get(.anthropic))
+        } catch {
+            lastError = error.localizedDescription
+            step("Couldn't read it: \(error.localizedDescription)")
+        }
+        if parsed.notATicket { lastError = "That doesn't look like a ticket."; step("Not a ticket."); return nil }
+        step("\(parsed.title) · \(PassTimes.humanDate(parsed.date) ?? "no date") · \(parsed.time)")
+
+        let crop = parsed.box.flatMap { Self.crop(upright, to: $0) }
+        let p = Pass(title: parsed.title)
+        p.kind = parsed.kind
+        p.venue = parsed.venue
+        p.date = parsed.date
+        p.time = parsed.time
+        p.seat = parsed.seat
+        p.price = parsed.price
+        p.bookingCode = parsed.code
+        p.confidence = parsed.confidence
+        p.sourceURL = sourceURL
+        p.photo = upright.jpegData(compressionQuality: 0.85)
+        p.crop = crop?.jpegData(compressionQuality: 0.9)
+
+        step("Looking for the ticket's own barcode…")
+        let found = await Task.detached(priority: .userInitiated) { Barcodes.read(crop: crop, photo: upright) }.value
+        if let found {
+            p.scannedCode = found.text
+            p.scannedFormat = found.format
+            step("Found a \(found.format.rawValue.uppercased()) code.")
+        } else { step("No readable code in the photo.") }
+
+        await decorate(p)
+
+        // Same showing as a ticket already saved? Keep them together.
+        let all = (try? ctx.fetch(FetchDescriptor<Pass>())) ?? []
+        if let twin = all.first(where: { $0.sameShowing(as: p) }) { p.group = twin.group; step("Grouped with your other ticket.") }
+        ctx.insert(p)
+        try? ctx.save()
+        Reminders.schedule(p)
+        step("Saved.")
+        return p
+    }
+
+    /// Poster and runtime for a film, drawn art for a game or a concert.
+    func decorate(_ p: Pass) async {
+        if p.kind == .movie, let key = Keys.get(.tmdb) {
+            step("Finding the poster…")
+            let year = String(p.date.prefix(4))
+            let matches = await TMDb.search(p.title, year: year, key: key)
+            var m = matches.first
+            if m == nil { m = await TMDb.search(p.title, key: key).first }
+            if let m { apply(m, to: p); p.runtime = await TMDb.runtime(m.id, key: key) }
+        } else if p.kind != .movie {
+            step("Drawing art…")
+            p.art = await EventArt.art(for: p.kind, title: p.title)
+        }
+    }
+
+    func apply(_ m: MovieMatch, to p: Pass) {
+        p.tmdbID = m.id
+        p.posterPath = m.posterPath
+        p.backdropPath = m.backdropPath
+        p.overview = m.overview.isEmpty ? nil : m.overview
+    }
+
+    private func step(_ s: String) { log.append(s) }
+
+    static func upright(_ img: UIImage) -> UIImage {
+        guard img.imageOrientation != .up else { return img }
+        let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
+        return UIGraphicsImageRenderer(size: img.size, format: fmt).image { _ in img.draw(in: CGRect(origin: .zero, size: img.size)) }
+    }
+
+    /// The model's box, with a little margin, clamped to the photo.
+    static func crop(_ img: UIImage, to box: CGRect) -> UIImage? {
+        guard let cg = img.cgImage else { return nil }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height)
+        if box.width > 0.97 && box.height > 0.97 { return nil }
+        var r = CGRect(x: box.minX * w, y: box.minY * h, width: box.width * w, height: box.height * h).insetBy(dx: -0.02 * w, dy: -0.02 * h)
+        r = r.intersection(CGRect(x: 0, y: 0, width: w, height: h)).integral
+        guard r.width > 40, r.height > 40, let out = cg.cropping(to: r) else { return nil }
+        return UIImage(cgImage: out)
+    }
+}

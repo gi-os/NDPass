@@ -1,19 +1,10 @@
-node_modules/
-.expo/
-dist/
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-web-build/
-.env
-ios/
-android/
-
-# macOS
+*.xcodeproj/
+build/
+DerivedData/
 .DS_Store
-
-# EAS
-.easignore
+*.ipa
+*.dSYM.zip
+fastlane/report.xml
+fastlane/README.md
+vendor/
+.bundle/

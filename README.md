@@ -1,68 +1,29 @@
-# NDPass 🎬
+# NDPass
 
-AI-powered movie ticket stub collector for iOS. Snap a photo of your ticket, Claude parses the details, get reminders before showtime, build your cinema history.
+Movie ticket stubs on iPhone. Photograph a stub or pick a screenshot, and Claude Haiku reads the
+title, theater, date, time, seat, price and booking reference. NDPass keeps the collection sorted
+by showtime, moves a ticket to the archive once the film ends, and shows the ticket's own barcode
+full screen at the door.
 
-## Features
+v2 is a native SwiftUI rewrite at parity with [BrightPasses](https://github.com/gi-os/BrightPasses)
+on the Light Phone III. The Expo version lives on the `expo` branch (tag `expo-final`).
 
-- **AI Ticket Scanning** — Claude Vision extracts movie, theater, date/time, seat, price
-- **TMDb Posters** — movie posters and backdrop art on ticket cards
-- **Liquid Glass UI** — iOS 26-inspired translucent panels and blur effects
-- **Stub Collection** — full ticket images, grouped by showing
-- **Calendar View** — monthly calendar with showing dots
-- **Showtime Reminders** — 9AM day-of, 2hrs before, 30min before
-- **Fullscreen Tickets** — tap to show ticket at box office
-- **Edit Tickets** — fix any field after scanning
-- **Auto-Archive** — past showings move to archive
-- **Stats Dashboard** — total stubs, spend, favorite theater
-- **Share Extension** — share screenshots directly to NDPass
-- **Home Screen Widget** — next showing with poster (SwiftUI)
-- **Debug Terminal** — live scan progress
+- Claude Haiku parse with a tight crop around the paper; the full photo stays one tap away.
+- A date with no year is read as upcoming (same rule and tests as BrightPasses).
+- The real barcode is read off the photo (QR, PDF417, Aztec, Code 128). If there isn't one, a code is drawn from the booking reference and labelled as generated.
+- Full-screen code on white at full brightness.
+- TMDb posters and film search; crests for games (ESPN), art for concerts.
+- Tickets for the same showing group together; merge the ones that didn't match.
+- Reminders at 9 AM on the day, 2 hours before and 30 minutes before.
+- Calendar and stats.
+- On the iPhone Duo's inner display, the list and the ticket sit side by side.
 
-## Stack
+Keys (Settings): Anthropic (required for automatic reading), TMDb (optional). Stored in the Keychain.
 
-- Expo SDK 52, React Native, TypeScript
-- expo-sqlite, expo-blur, expo-linear-gradient
-- Anthropic API (Claude Sonnet 4), TMDb API
-- SwiftUI widget + Share Extension
+## Build
 
-## Setup
-
-```bash
-git clone https://github.com/gi-os/NDPass.git
-cd NDPass
-npm install
-npx expo prebuild --clean
-npx expo run:ios
+```sh
+brew install xcodegen && xcodegen generate && open NDPass.xcodeproj
 ```
 
-Settings tab → add Anthropic API key (required) and TMDb API key (optional, for posters).
-
-## TestFlight
-
-```bash
-npm install -g eas-cli
-eas login
-eas build --platform ios --profile preview
-eas submit --platform ios
-```
-
-EAS will prompt for Apple Developer credentials on first run.
-
-## Extensions
-
-See `extensions/README.md` for Share Extension setup.
-See `widgets/README.md` for Home Screen Widget setup.
-
-## Roadmap
-
-- [ ] Home screen widget (SwiftUI code ready, needs Xcode target)
-- [ ] Share extension (Swift code ready, needs Xcode target)
-- [ ] Apple Wallet passes
-- [ ] Gmail/email integration for auto-import
-- [ ] Apple Foundation Models (on-device, no API key)
-- [ ] iCloud sync
-- [ ] Letterboxd deep links
-
-## License
-
-MIT
+CI: `check.yml` on every branch; a push to `main` ships to TestFlight via fastlane match.

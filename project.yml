@@ -1,0 +1,60 @@
+name: NDPass
+options:
+  bundleIdPrefix: com.gios
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    DEVELOPMENT_TEAM: ""
+targets:
+  NDPass:
+    type: application
+    platform: iOS
+    sources:
+      - path: NDPass
+    info:
+      path: NDPass/Info.plist
+      properties:
+        CFBundleDisplayName: NDPass
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: NDPass photographs your ticket stubs and reads them.
+        NSPhotoLibraryUsageDescription: NDPass imports ticket photos and screenshots you pick.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIUserInterfaceStyle: Dark
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+  NDPassTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: NDPassTests
+    dependencies:
+      - target: NDPass
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.tests
+schemes:
+  NDPass:
+    build:
+      targets:
+        NDPass: all
+        NDPassTests: [test]
+    test:
+      targets:
+        - NDPassTests
