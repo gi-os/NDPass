@@ -7,7 +7,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.1.2"
+    MARKETING_VERSION: "2.2.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     DEVELOPMENT_TEAM: ""
@@ -52,7 +52,27 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.tests
+  NDPassUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: NDPassUITests
+    dependencies:
+      - target: NDPass
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.uitests
+        TEST_TARGET_NAME: NDPass
 schemes:
+  NDPassScreenshots:
+    build:
+      targets:
+        NDPass: all
+        NDPassUITests: [test]
+    test:
+      targets:
+        - NDPassUITests
   NDPass:
     build:
       targets:

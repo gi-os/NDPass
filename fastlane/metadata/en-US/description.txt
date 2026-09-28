@@ -1,0 +1,22 @@
+Photograph a ticket stub and NDPass reads it: the film, the theater, the date and time, your seat, the price and the booking code. Every ticket is kept in one place, sorted by showtime, and moves to your collection once the film is over.
+
+AT THE DOOR
+NDPass finds the barcode printed on your ticket and shows it full screen on white, at full brightness. If there isn't one, it draws a code from the booking reference and tells you it's generated.
+
+TONIGHT
+The next showing fills the screen: the film's art, a countdown, your seats, and directions to the theater in Apple Maps or Google Maps.
+
+YOUR COLLECTION
+Every stub you've kept, as a wall of tickets. Filter by year, by games or by concerts. See it on a calendar, or in stats.
+
+MORE
+• Screenshots of e-tickets work too.
+• Tickets for the same showing group together.
+• Reminders the morning of, two hours before and thirty minutes before.
+• A countdown screen for propping your phone on the table.
+• On iPhone with a large display, your list and your ticket sit side by side.
+
+READING TICKETS
+Tickets are read by Anthropic's Claude using your own API key, entered in Settings. NDPass asks before sending any photo, and works without it: you can type the details yourself. Posters come from TMDB with an optional free key.
+
+No account, no ads, no tracking. Your tickets stay on your phone.

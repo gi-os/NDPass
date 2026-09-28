@@ -24,11 +24,13 @@ struct ScanMenu<Label: View>: View {
     @State private var photos = false
     @State private var camera = false
     @State private var log = false
+    @State private var consent = false
+    @State private var next: (() -> Void)?
 
     var body: some View {
         Menu {
-            Button { camera = true } label: { SwiftUI.Label("Photograph a stub", systemImage: "camera") }
-            Button { photos = true } label: { SwiftUI.Label("Pick a photo or screenshot", systemImage: "photo") }
+            Button { ask { camera = true } } label: { SwiftUI.Label("Photograph a stub", systemImage: "camera") }
+            Button { ask { photos = true } } label: { SwiftUI.Label("Pick a photo or screenshot", systemImage: "photo") }
         } label: { label() }
         .photosPicker(isPresented: $photos, selection: $item, matching: .images)
         .onChange(of: item) { _, it in
@@ -41,7 +43,20 @@ struct ScanMenu<Label: View>: View {
         .fullScreenCover(isPresented: $camera) {
             CameraPicker { img in camera = false; if let img { Task { await run(img) } } }.ignoresSafeArea()
         }
+        .sheet(isPresented: $consent) {
+            AIConsentSheet { ok in
+                AIConsent.granted = ok
+                consent = false
+                let n = next; next = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { n?() }
+            }
+            .presentationDetents([.large])
+        }
         .sheet(isPresented: $log) { ScanLog().environmentObject(importer).presentationDetents([.medium]).presentationBackground(Theme.bg) }
+    }
+
+    private func ask(_ then: @escaping () -> Void) {
+        if AIConsent.asked { then() } else { next = then; consent = true }
     }
 
     private func run(_ img: UIImage) async {

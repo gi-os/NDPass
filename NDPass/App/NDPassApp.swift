@@ -6,7 +6,9 @@ struct NDPassApp: App {
     init() { Theme.applyNavigationFonts() }
 
     var body: some Scene {
-        WindowGroup { RootView() }
-            .modelContainer(for: Pass.self)
+        WindowGroup {
+            if Demo.active { RootView().modelContainer(Demo.container()) }
+            else { RootView().modelContainer(for: Pass.self) }
+        }
     }
 }

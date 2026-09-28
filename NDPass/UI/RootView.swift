@@ -18,6 +18,7 @@ struct RootView: View {
         .tint(Theme.accent)
         .preferredColorScheme(.dark)
         .onAppear {
+            guard !Demo.active else { return }
             Reminders.requestAccess()
             imported = ExpoImport.runIfNeeded(ctx)
         }

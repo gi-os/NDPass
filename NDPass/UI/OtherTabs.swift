@@ -118,6 +118,7 @@ struct SettingsView: View {
     @State private var tmdb = Keys.get(.tmdb) ?? ""
     @State private var saved = false
     @State private var maps = Maps.preferred
+    @State private var ai = AIConsent.granted
 
     var body: some View {
         NavigationStack {
@@ -138,12 +139,27 @@ struct SettingsView: View {
                         Keys.set(.anthropic, anthropic); Keys.set(.tmdb, tmdb); saved = true
                     }
                 }
+                Section {
+                    Toggle("Read tickets with Claude", isOn: $ai)
+                } footer: { Text("Scanning sends the ticket photo to Anthropic's Claude API with your key. Off: you type the details.") }
                 Section { Text("Keys are stored in the iOS Keychain on this phone.").font(.footnote).foregroundStyle(.secondary) }
+                Section("About") {
+                    Link("Privacy policy", destination: URL(string: "https://gi-os.github.io/NDPass/privacy.html")!)
+                    Link("Support", destination: URL(string: "https://gi-os.github.io/NDPass/")!)
+                    Link(destination: URL(string: "https://www.themoviedb.org")!) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Film data and posters from TMDB").foregroundStyle(Theme.ink)
+                            Text("This product uses the TMDB API but is not endorsed or certified by TMDB.").font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    Text("NDPass \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")").foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Settings")
             .onChange(of: anthropic) { _, _ in saved = false }
             .onChange(of: tmdb) { _, _ in saved = false }
             .onChange(of: maps) { _, v in Maps.preferred = v }
+            .onChange(of: ai) { _, v in AIConsent.granted = v }
         }
     }
 }

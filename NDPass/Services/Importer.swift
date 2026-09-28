@@ -15,13 +15,17 @@ final class Importer: ObservableObject {
         lastError = nil
         defer { busy = false }
         let upright = Self.upright(image)
-        step("Reading the ticket…")
         var parsed = Parsed()
-        do {
-            parsed = try await Parser.parse(upright, key: Keys.get(.anthropic))
-        } catch {
-            lastError = error.localizedDescription
-            step("Couldn't read it: \(error.localizedDescription)")
+        if AIConsent.granted {
+            step("Reading the ticket…")
+            do {
+                parsed = try await Parser.parse(upright, key: Keys.get(.anthropic))
+            } catch {
+                lastError = error.localizedDescription
+                step("Couldn't read it: \(error.localizedDescription)")
+            }
+        } else {
+            step("Reading with Claude is off. Fill in the ticket by hand.")
         }
         if parsed.notATicket { lastError = "That doesn't look like a ticket."; step("Not a ticket."); return nil }
         step("\(parsed.title) · \(PassTimes.humanDate(parsed.date) ?? "no date") · \(parsed.time)")

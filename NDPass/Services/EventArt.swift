@@ -3,40 +3,36 @@ import UIKit
 /// Poster art for tickets that aren't films: two team crests cut across a diagonal for a
 /// game, a drawn note for a concert. Best effort; any failure means the ticket shows its photo.
 enum EventArt {
-    static func logoURL(_ team: String) async -> URL? {
-        guard var c = URLComponents(string: "https://site.web.api.espn.com/apis/search/v2") else { return nil }
-        c.queryItems = [URLQueryItem(name: "query", value: team), URLQueryItem(name: "limit", value: "5")]
-        guard let url = c.url, let (data, _) = try? await URLSession.shared.data(from: url),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let results = root["results"] as? [[String: Any]] else { return nil }
-        for r in results where r["type"] as? String == "team" {
-            for item in r["contents"] as? [[String: Any]] ?? [] {
-                guard let img = item["image"] as? [String: Any] else { continue }
-                let s = (img["defaultDark"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? img["default"] as? String
-                if let s, let u = URL(string: s) { return u }
-            }
-        }
-        return nil
-    }
-
-    static func image(_ url: URL) async -> UIImage? {
-        guard let (d, _) = try? await URLSession.shared.data(from: url) else { return nil }
-        return UIImage(data: d)
-    }
-
     static func art(for kind: EventKind, title: String) async -> Data? {
         switch kind {
         case .movie: return nil
         case .concert: return musicCard().pngData()
         case .sports:
+            // Team names set as a versus card. (Crests came from ESPN's unofficial API, which
+            // isn't something to ship in a store app.)
             guard let (a, b) = Matchup.split(title) else { return nil }
-            async let ua = logoURL(a)
-            async let ub = logoURL(b)
-            guard let la = await ua, let lb = await ub else { return nil }
-            async let ia = image(la)
-            async let ib = image(lb)
-            guard let home = await ia, let away = await ib else { return nil }
-            return versus(home, away).jpegData(compressionQuality: 0.9)
+            return matchCard(a, b).jpegData(compressionQuality: 0.9)
+        }
+    }
+
+    static func matchCard(_ home: String, _ away: String) -> UIImage {
+        let size = CGSize(width: 600, height: 900)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let c = ctx.cgContext
+            UIColor(red: 0.08, green: 0.05, blue: 0.03, alpha: 1).setFill(); c.fill(CGRect(origin: .zero, size: size))
+            UIColor(red: 0.94, green: 0.54, blue: 0.24, alpha: 1).setFill()
+            c.move(to: .zero); c.addLine(to: CGPoint(x: size.width, y: 0)); c.addLine(to: CGPoint(x: 0, y: size.height)); c.closePath(); c.fillPath()
+            let cream = UIColor(red: 0.96, green: 0.91, blue: 0.85, alpha: 1)
+            let ink = UIColor(red: 0.11, green: 0.05, blue: 0.02, alpha: 1)
+            func draw(_ s: String, _ r: CGRect, _ color: UIColor, _ align: NSTextAlignment) {
+                let p = NSMutableParagraphStyle(); p.alignment = align
+                let font = UIFont(name: "InstrumentSerif-Regular", size: 92) ?? .systemFont(ofSize: 80, weight: .black)
+                (s as NSString).draw(with: r, options: [.usesLineFragmentOrigin], attributes: [.font: font, .foregroundColor: color, .paragraphStyle: p], context: nil)
+            }
+            draw(home, CGRect(x: 40, y: 90, width: 520, height: 320), ink, .left)
+            draw(away, CGRect(x: 40, y: 520, width: 520, height: 320), cream, .right)
+            let vs: [NSAttributedString.Key: Any] = [.font: UIFont(name: "InstrumentSerif-Italic", size: 70) ?? .italicSystemFont(ofSize: 60), .foregroundColor: cream]
+            ("vs" as NSString).draw(at: CGPoint(x: 420, y: 400), withAttributes: vs)
         }
     }
 
