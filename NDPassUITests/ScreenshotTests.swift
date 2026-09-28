@@ -2,9 +2,8 @@ import XCTest
 
 /// The App Store screenshots, run by `fastlane snapshot` on CI against demo tickets.
 final class ScreenshotTests: XCTestCase {
-    override func setUp() { continueAfterFailure = true }
-
-    func testScreenshots() {
+    @MainActor func testScreenshots() {
+        continueAfterFailure = true
         let app = XCUIApplication()
         setupSnapshot(app)
         app.launchArguments += ["-demo"]
