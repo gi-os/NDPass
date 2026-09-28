@@ -30,6 +30,7 @@ targets:
         NSPhotoLibraryUsageDescription: NDPass imports ticket photos and screenshots you pick.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIUserInterfaceStyle: Dark
