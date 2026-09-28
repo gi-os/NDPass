@@ -117,6 +117,7 @@ struct SettingsView: View {
     @State private var anthropic = Keys.get(.anthropic) ?? ""
     @State private var tmdb = Keys.get(.tmdb) ?? ""
     @State private var saved = false
+    @State private var maps = Maps.preferred
 
     var body: some View {
         NavigationStack {
@@ -128,6 +129,11 @@ struct SettingsView: View {
                     SecureField("TMDb API key", text: $tmdb).autocorrectionDisabled().textInputAutocapitalization(.never)
                 } header: { Text("TMDb key (optional)") } footer: { Text("Posters and film search.") }
                 Section {
+                    Picker("Directions in", selection: $maps) {
+                        ForEach(Maps.App.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                } footer: { Text(Maps.googleInstalled ? "Tapping a venue opens directions here." : "Google Maps isn't installed, so it opens in the browser.") }
+                Section {
                     Button(saved ? "Saved" : "Save keys") {
                         Keys.set(.anthropic, anthropic); Keys.set(.tmdb, tmdb); saved = true
                     }
@@ -137,6 +143,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .onChange(of: anthropic) { _, _ in saved = false }
             .onChange(of: tmdb) { _, _ in saved = false }
+            .onChange(of: maps) { _, v in Maps.preferred = v }
         }
     }
 }

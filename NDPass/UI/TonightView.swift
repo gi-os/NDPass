@@ -173,10 +173,34 @@ struct TonightView: View {
     }
 }
 
+/// Directions in Apple Maps or Google Maps. Google Maps is the default when it's installed;
+/// Settings can change it. Without the app, Google opens in the browser.
 enum Maps {
+    enum App: String, CaseIterable { case apple, google
+        var title: String { self == .apple ? "Apple Maps" : "Google Maps" }
+    }
+
+    static var googleInstalled: Bool { UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!) }
+
+    static var preferred: App {
+        get { UserDefaults.standard.string(forKey: "mapsApp").flatMap(App.init(rawValue:)) ?? (googleInstalled ? .google : .apple) }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "mapsApp") }
+    }
+
     static func open(_ venue: String) {
-        var c = URLComponents(string: "maps://")!
-        c.queryItems = [URLQueryItem(name: "q", value: venue)]
-        if let u = c.url { UIApplication.shared.open(u) }
+        switch preferred {
+        case .google:
+            if googleInstalled, var c = URLComponents(string: "comgooglemaps://") {
+                c.queryItems = [URLQueryItem(name: "daddr", value: venue), URLQueryItem(name: "directionsmode", value: "transit")]
+                if let u = c.url { UIApplication.shared.open(u); return }
+            }
+            var c = URLComponents(string: "https://www.google.com/maps/dir/")!
+            c.queryItems = [URLQueryItem(name: "api", value: "1"), URLQueryItem(name: "destination", value: venue), URLQueryItem(name: "travelmode", value: "transit")]
+            if let u = c.url { UIApplication.shared.open(u) }
+        case .apple:
+            var c = URLComponents(string: "maps://")!
+            c.queryItems = [URLQueryItem(name: "daddr", value: venue)]
+            if let u = c.url { UIApplication.shared.open(u) }
+        }
     }
 }
