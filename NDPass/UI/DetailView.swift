@@ -108,7 +108,7 @@ struct DetailView: View {
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
                 GridRow {
-                    FieldLabel(title: "Date", value: PassTimes.humanDate(p.date) ?? "")
+                    FieldLabel(title: "Date", value: p.dateLabel)
                     FieldLabel(title: "Time", value: timeRange(p), mono: true)
                 }
                 GridRow {
@@ -149,7 +149,7 @@ struct DetailView: View {
     }
 
     private func timeRange(_ p: Pass) -> String {
-        guard !p.time.isEmpty else { return "" }
+        guard !p.timeTBD else { return "TBD" }
         guard let r = p.runtime, let s = p.start else { return p.time }
         return p.time + " – " + s.addingTimeInterval(Double(r) * 60).formatted(date: .omitted, time: .shortened)
     }

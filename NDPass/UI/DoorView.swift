@@ -114,7 +114,7 @@ struct CountdownView: View {
                     VStack(spacing: 14) {
                         HStack(spacing: 12) {
                             box(passes.count > 1 ? "Seats" : "Seat", Showings.seats(passes))
-                            box("Time", p?.time ?? "")
+                            box("Time", p?.timeLabel ?? "")
                         }
                         Button { door = true } label: {
                             Text("Show at the door").font(Theme.sans(18, .semibold)).foregroundStyle(Theme.onAccent)

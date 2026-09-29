@@ -112,9 +112,9 @@ struct TonightView: View {
             }
             Perforation().padding(.horizontal, -6).padding(.vertical, 4)
             HStack(alignment: .top, spacing: 8) {
-                FieldLabel(title: "Time", value: p.time, mono: true)
+                FieldLabel(title: "Time", value: p.timeLabel, mono: true)
                 FieldLabel(title: g.count > 1 ? "Seats" : "Seat", value: Showings.seats(g), mono: true)
-                FieldLabel(title: "Date", value: p.start.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? p.date, mono: true)
+                FieldLabel(title: "Date", value: p.start.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? (p.dateTBD ? "TBD" : p.date), mono: true)
             }
             HStack(spacing: 10) {
                 if let seller = p.seller, seller.rotatingCode, !g.contains(where: { $0.scannedCode != nil }) {

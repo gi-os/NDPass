@@ -191,7 +191,10 @@ enum Countdown {
     }
 
     static func eyebrow(for p: Pass, now: Date = Date()) -> String {
-        guard let start = p.start else { return PassTimes.humanDate(p.date)?.uppercased() ?? "NO DATE YET" }
+        guard let start = p.start else {
+            if let d = PassTimes.humanDate(p.date) { return d.uppercased() + " · TIME TBD" }
+            return "DATE TBD"
+        }
         let cal = Calendar.current
         let prefix: String
         if cal.isDateInToday(start) { prefix = "TONIGHT" }
@@ -292,7 +295,7 @@ struct TicketStub: View {
                     VStack(spacing: 2) {
                         Text(month(p)).font(Theme.mono(11, .medium)).tracking(1.4).foregroundStyle(Theme.amber)
                         Text(dayNum(p)).font(Theme.serif(height * 0.3)).foregroundStyle(Theme.ink)
-                        Text(p.time.isEmpty ? " " : p.time).font(Theme.mono(11)).foregroundStyle(Theme.ink.opacity(0.85))
+                        Text(p.timeLabel).font(Theme.mono(11)).foregroundStyle(Theme.ink.opacity(0.85))
                         if passes.count > 1 { Text("×\(passes.count)").font(Theme.mono(11)).foregroundStyle(Theme.muted).padding(.top, 2) }
                     }
                     .frame(width: stubW)
@@ -352,8 +355,10 @@ struct DateField: View {
             Spacer()
             if WhenFormat.date(text) != nil {
                 DatePicker(label, selection: bound, displayedComponents: .date).labelsHidden()
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }
+                    .buttonStyle(.plain).accessibilityLabel("Date TBD")
             } else {
-                Button(text.isEmpty ? "Add date" : "Fix “\(text)”") { text = WhenFormat.day.string(from: Date()) }
+                Button(text.isEmpty || PassTimes.tbd(text) ? "TBD · Add date" : "Fix “\(text)”") { text = WhenFormat.day.string(from: Date()) }
                     .tint(Theme.accent)
             }
         }
@@ -374,8 +379,10 @@ struct TimeField: View {
             if WhenFormat.time(text) != nil {
                 DatePicker(label, selection: bound, displayedComponents: .hourAndMinute).labelsHidden()
                     .environment(\.locale, Locale(identifier: "en_US"))   // AM/PM even on a 24-hour phone
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }
+                    .buttonStyle(.plain).accessibilityLabel("Time TBD")
             } else {
-                Button(text.isEmpty ? "Add time" : "Fix “\(text)”") { text = "7:30 PM" }.tint(Theme.accent)
+                Button(text.isEmpty || PassTimes.tbd(text) ? "TBD · Add time" : "Fix “\(text)”") { text = "7:30 PM" }.tint(Theme.accent)
             }
         }
     }

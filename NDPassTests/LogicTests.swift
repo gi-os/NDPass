@@ -217,3 +217,17 @@ final class StatsTests: XCTestCase {
         XCTAssertEqual(s.spent, 158)
     }
 }
+
+@MainActor
+final class TBDTests: XCTestCase {
+    func testTBD() throws {
+        let c = try ModelContainer(for: Pass.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let p = Pass(title: "Liberty vs Aces"); c.mainContext.insert(p)
+        XCTAssertTrue(p.dateTBD); XCTAssertTrue(p.timeTBD)
+        XCTAssertEqual(p.dateLabel, "Date TBD"); XCTAssertEqual(p.timeLabel, "TBD")
+        XCTAssertFalse(p.isArchived)
+        p.date = "2026-08-06"
+        XCTAssertFalse(p.dateTBD); XCTAssertTrue(p.timeTBD)
+        XCTAssertTrue(PassTimes.tbd("TBA")); XCTAssertTrue(PassTimes.tbd("Time TBD")); XCTAssertFalse(PassTimes.tbd("7:30 PM"))
+    }
+}

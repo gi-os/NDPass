@@ -163,7 +163,7 @@ struct StubThumb: View {
     }
 
     private func meta(_ p: Pass) -> String {
-        let d = PassTimes.day(p.date).map { $0.formatted(.dateTime.month(.abbreviated).day()).uppercased() } ?? "NO DATE"
+        let d = PassTimes.day(p.date).map { $0.formatted(.dateTime.month(.abbreviated).day()).uppercased() } ?? "DATE TBD"
         return p.venue.isEmpty ? d : "\(d) · \(p.venue.uppercased())"
     }
 }
@@ -183,7 +183,7 @@ struct TicketCard: View {
             }
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 4) {
-                if !p.time.isEmpty { Text(p.time).font(Theme.mono(14)).foregroundStyle(Theme.ink) }
+                Text(p.timeLabel).font(Theme.mono(14)).foregroundStyle(p.timeTBD ? Theme.muted : Theme.ink)
                 if passes.count > 1 { Text("×\(passes.count)").font(Theme.mono(12)).foregroundStyle(Theme.muted) }
             }
         }

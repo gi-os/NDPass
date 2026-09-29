@@ -66,6 +66,12 @@ enum PassTimes {
     }
 
     /// "Regal Union Square" rather than "REGAL UNION SQUARE".
+    /// "TBD", "TBA", "To be announced", "TBC": no date or time yet.
+    static func tbd(_ s: String?) -> Bool {
+        guard let t = s?.trimmingCharacters(in: .whitespaces).lowercased(), !t.isEmpty else { return false }
+        return ["tbd", "tba", "tbc", "to be determined", "to be announced", "to be confirmed"].contains { t.contains($0) }
+    }
+
     /// Title Case for text read in all capitals or all lowercase; mixed case is left as
     /// printed (it's usually deliberate: "iPhone", "McCarren", "The xx").
     static func display(_ s: String) -> String {

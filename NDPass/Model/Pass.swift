@@ -63,8 +63,19 @@ final class Pass {
     }
 
     var start: Date? { PassTimes.start(date: date, time: time) }
-    var isArchived: Bool { PassTimes.isArchived(date: date, time: time, runtime: runtime) }
-    var sortDate: Date { start ?? PassTimes.day(date) ?? createdAt }
+    var isArchived: Bool {
+        // No date yet (a TBD game, an undated stub): upcoming for four months after it was
+        // added, then it moves to the past so it doesn't sit in Up Next forever.
+        if PassTimes.day(date) == nil { return Date().timeIntervalSince(createdAt) > 120 * 86400 }
+        return PassTimes.isArchived(date: date, time: time, runtime: runtime)
+    }
+    /// Dated showings in order; a TBD date sorts after every dated one.
+    var sortDate: Date { start ?? PassTimes.day(date) ?? Date.distantFuture.addingTimeInterval(-createdAt.timeIntervalSince1970) }
+    var dateTBD: Bool { PassTimes.day(date) == nil }
+    var timeTBD: Bool { PassTimes.start(date: "2000-01-01", time: time) == nil }
+    /// "Aug 6" / "Date TBD", "7:30 PM" / "TBD", for labels.
+    var dateLabel: String { PassTimes.humanDate(date) ?? "Date TBD" }
+    var timeLabel: String { timeTBD ? "TBD" : time }
     var posterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w500\($0)") } }
     var bigPosterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w780\($0)") } }
     var logoURL: URL? { logoPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w500\($0)") } }
