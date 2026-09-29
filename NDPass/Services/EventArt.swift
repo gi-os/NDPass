@@ -10,7 +10,7 @@ enum EventArt {
         let (data, name) = await artAndName(for: p.kind, title: p.title, context: p.venue)
         if let data { p.art = data }
         if let name, !name.isEmpty { p.title = name }
-        else if p.title == p.title.lowercased(), let t = PassTimes.titleCase(p.title) { p.title = t }
+        else { p.title = PassTimes.display(p.title) }
     }
 
     /// Draw a game from two teams picked by hand.

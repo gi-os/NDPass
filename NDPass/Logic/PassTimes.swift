@@ -66,6 +66,14 @@ enum PassTimes {
     }
 
     /// "Regal Union Square" rather than "REGAL UNION SQUARE".
+    /// Title Case for text read in all capitals or all lowercase; mixed case is left as
+    /// printed (it's usually deliberate: "iPhone", "McCarren", "The xx").
+    static func display(_ s: String) -> String {
+        let letters = s.filter(\.isLetter)
+        guard !letters.isEmpty, letters == letters.uppercased() || letters == letters.lowercased() else { return s }
+        return titleCase(s) ?? s
+    }
+
     static func titleCase(_ s: String?) -> String? {
         guard let s, !s.isEmpty else { return s }
         let small: Set<String> = ["of", "the", "at", "and", "in", "on", "a"]

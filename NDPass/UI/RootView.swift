@@ -67,10 +67,13 @@ struct RootView: View {
             imported = ExpoImport.runIfNeeded(ctx)
         }
         .task {
-            // Times saved as 24-hour get AM/PM, once.
+            // Once: times saved as 24-hour get AM/PM; titles and venues saved in all caps
+            // or all lowercase get Title Case.
             guard !Demo.active, !Store.defaults.bool(forKey: "ampm") else { return }
             for p in (try? ctx.fetch(FetchDescriptor<Pass>())) ?? [] {
                 if let t = PassTimes.normalizeTime(p.time), t != p.time { p.time = t }
+                let t = PassTimes.display(p.title); if t != p.title { p.title = t }
+                let v = PassTimes.display(p.venue); if v != p.venue { p.venue = v }
             }
             try? ctx.save()
             Store.defaults.set(true, forKey: "ampm")
