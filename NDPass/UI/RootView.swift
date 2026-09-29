@@ -22,6 +22,15 @@ struct RootView: View {
             Reminders.requestAccess()
             imported = ExpoImport.runIfNeeded(ctx)
         }
+        .task {
+            guard !Demo.active, let key = Keys.get(.tmdb) else { return }
+            let checked = Set(UserDefaults.standard.stringArray(forKey: "logoChecked") ?? [])
+            let todo = ((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).filter { $0.tmdbID != nil && $0.logoPath == nil && !checked.contains($0.id.uuidString) }
+            var done = checked
+            for p in todo { await TMDb.art(for: p, key: key); done.insert(p.id.uuidString) }
+            try? ctx.save()
+            UserDefaults.standard.set(Array(done), forKey: "logoChecked")
+        }
         .alert("Brought over \(imported) tickets from the old NDPass", isPresented: Binding(get: { imported > 0 }, set: { if !$0 { imported = 0 } })) {
             Button("OK") {}
         } message: { Text("Your keys came across too.") }

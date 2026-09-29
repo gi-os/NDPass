@@ -39,14 +39,22 @@ struct TonightView: View {
 
     private func hero(_ g: [Pass]?) -> some View {
         ZStack(alignment: .top) {
-            CoverArt(pass: g?.first).frame(height: 560).frame(maxWidth: .infinity)
+            CoverArt(pass: g?.first, preferBackdrop: g?.first?.backdropPath != nil).frame(height: 560).frame(maxWidth: .infinity)
             LinearGradient(stops: [.init(color: Theme.bg.opacity(0.35), location: 0), .init(color: .clear, location: 0.25),
                                    .init(color: Theme.bg.opacity(0.85), location: 0.78), .init(color: Theme.bg, location: 1)],
                            startPoint: .top, endPoint: .bottom)
                 .frame(height: 560)
             VStack(spacing: 0) {
                 topBar.padding(.top, 62).padding(.horizontal, 20)
-                Spacer().frame(height: 168)
+                Group {
+                    if let p = g?.first, p.logoURL != nil {
+                        TitleMark(pass: p, maxHeight: 96, alignment: .leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 24)
+                    } else { Color.clear }
+                }
+                .frame(height: 168, alignment: .bottom)
+                .padding(.bottom, 12)
                 if let g { stub(g).padding(.horizontal, 16) } else { empty.padding(.horizontal, 16) }
             }
         }
@@ -78,7 +86,11 @@ struct TonightView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(p.title).font(Theme.serif(48)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.6)
+                if p.logoURL == nil {
+                    Text(p.title).font(Theme.serif(48)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.6)
+                } else {
+                    Text(p.title).font(Theme.sans(18, .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
+                }
                 if !p.venue.isEmpty { Text(p.venue).font(Theme.sans(15)).foregroundStyle(Theme.ink.opacity(0.85)) }
             }
             Perforation().padding(.horizontal, -6).padding(.vertical, 4)
@@ -123,7 +135,7 @@ struct TonightView: View {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(gs, id: \.first!.group) { g in
-                        NavigationLink(value: g[0].group) { StubThumb(passes: g, height: 118).frame(width: 128) }
+                        NavigationLink(value: g[0].group) { TicketStub(passes: g, height: 128).frame(width: 300) }
                             .buttonStyle(.plain)
                     }
                 }

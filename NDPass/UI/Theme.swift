@@ -201,3 +201,121 @@ enum Countdown {
         return prefix
     }
 }
+
+/// A ticket stub cut across: notches bitten out of the top and bottom edges where it tears.
+struct TornStubShape: Shape {
+    var corner: CGFloat = 18
+    var notch: CGFloat = 10
+    var atX: CGFloat = 0.7
+
+    func path(in r: CGRect) -> Path {
+        let c = min(corner, min(r.width, r.height) / 2)
+        let n = min(notch, r.width / 8)
+        let x = r.minX + r.width * atX
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX + c, y: r.minY))
+        p.addLine(to: CGPoint(x: x - n, y: r.minY))
+        p.addArc(center: CGPoint(x: x, y: r.minY), radius: n, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
+        p.addLine(to: CGPoint(x: r.maxX - c, y: r.minY))
+        p.addArc(center: CGPoint(x: r.maxX - c, y: r.minY + c), radius: c, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - c))
+        p.addArc(center: CGPoint(x: r.maxX - c, y: r.maxY - c), radius: c, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        p.addLine(to: CGPoint(x: x + n, y: r.maxY))
+        p.addArc(center: CGPoint(x: x, y: r.maxY), radius: n, startAngle: .degrees(0), endAngle: .degrees(180), clockwise: true)
+        p.addLine(to: CGPoint(x: r.minX + c, y: r.maxY))
+        p.addArc(center: CGPoint(x: r.minX + c, y: r.maxY - c), radius: c, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + c))
+        p.addArc(center: CGPoint(x: r.minX + c, y: r.minY + c), radius: c, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// The film's title logo from TMDB, or its title set in the serif when there's no logo.
+struct TitleMark: View {
+    let pass: Pass
+    var maxHeight: CGFloat = 60
+    var fallbackSize: CGFloat = 30
+    var alignment: Alignment = .center
+
+    var body: some View {
+        Group {
+            if let u = pass.logoURL {
+                AsyncImage(url: u) { img in
+                    img.resizable().scaledToFit()
+                } placeholder: { fallback }
+            } else { fallback }
+        }
+        .frame(maxHeight: maxHeight, alignment: alignment)
+        .shadow(color: .black.opacity(0.65), radius: 10, y: 2)
+        .accessibilityLabel(pass.title)
+    }
+
+    private var fallback: some View {
+        Text(pass.title).font(Theme.serif(fallbackSize)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.5)
+            .multilineTextAlignment(alignment == .leading ? .leading : .center)
+    }
+}
+
+/// Plex-style ticket art: the textless backdrop with the title logo over it.
+struct TicketArt: View {
+    let pass: Pass
+    var logoHeight: CGFloat = 60
+    var alignment: Alignment = .center
+
+    var body: some View {
+        ZStack(alignment: alignment) {
+            CoverArt(pass: pass, preferBackdrop: true)
+            LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
+            TitleMark(pass: pass, maxHeight: logoHeight, fallbackSize: logoHeight * 0.5, alignment: alignment)
+                .padding(.horizontal, 16).padding(.vertical, 12)
+        }
+        .clipped()
+    }
+}
+
+/// A ticket in a list: backdrop and logo on the admission part, the date and time on the
+/// torn-off end.
+struct TicketStub: View {
+    let passes: [Pass]
+    var height: CGFloat = 150
+
+    var body: some View {
+        let p = passes[0]
+        let stubW = (height * 0.62).rounded()
+        VStack(alignment: .leading, spacing: 6) {
+            GeometryReader { g in
+                HStack(spacing: 0) {
+                    TicketArt(pass: p, logoHeight: height * 0.36)
+                        .frame(width: g.size.width - stubW)
+                    VStack(spacing: 2) {
+                        Text(month(p)).font(Theme.mono(11, .medium)).tracking(1.4).foregroundStyle(Theme.amber)
+                        Text(dayNum(p)).font(Theme.serif(height * 0.3)).foregroundStyle(Theme.ink)
+                        Text(p.time.isEmpty ? " " : p.time).font(Theme.mono(11)).foregroundStyle(Theme.ink.opacity(0.85))
+                        if passes.count > 1 { Text("×\(passes.count)").font(Theme.mono(11)).foregroundStyle(Theme.muted).padding(.top, 2) }
+                    }
+                    .frame(width: stubW)
+                    .frame(maxHeight: .infinity)
+                    .background(Theme.surface)
+                    .overlay(alignment: .leading) {
+                        Path { path in path.move(to: CGPoint(x: 0.75, y: 10)); path.addLine(to: CGPoint(x: 0.75, y: height - 10)) }
+                            .stroke(Theme.ink.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                    }
+                }
+                .clipShape(TornStubShape(corner: 18, notch: 9, atX: (g.size.width - stubW) / max(1, g.size.width)))
+            }
+            .frame(height: height)
+            if !p.venue.isEmpty {
+                Text(p.venue).font(Theme.sans(13)).foregroundStyle(Theme.muted).lineLimit(1).padding(.horizontal, 4)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func month(_ p: Pass) -> String {
+        PassTimes.day(p.date).map { $0.formatted(.dateTime.month(.abbreviated)).uppercased() } ?? "—"
+    }
+    private func dayNum(_ p: Pass) -> String {
+        PassTimes.day(p.date).map { String(Calendar.current.component(.day, from: $0)) } ?? "?"
+    }
+}

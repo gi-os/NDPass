@@ -32,4 +32,28 @@ enum TMDb {
               let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return (j["runtime"] as? Int).flatMap { $0 > 0 ? $0 : nil }
     }
+
+    /// The film's title logo (transparent PNG) and a backdrop without text, for Plex-style
+    /// tickets. English logos first, then language-free ones; textless backdrops first.
+    static func images(_ id: Int, key: String?) async -> (logo: String?, backdrop: String?) {
+        guard let key, let url = URL(string: "https://api.themoviedb.org/3/movie/\(id)/images?api_key=\(key)&include_image_language=en,null"),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return (nil, nil) }
+        func pick(_ list: [[String: Any]], prefer: String?) -> String? {
+            let sorted = list.sorted { ($0["vote_average"] as? Double ?? 0) > ($1["vote_average"] as? Double ?? 0) }
+            let preferred = sorted.first { ($0["iso_639_1"] as? String) == prefer }
+            return (preferred ?? sorted.first)?["file_path"] as? String
+        }
+        let logos = (j["logos"] as? [[String: Any]] ?? []).filter { ($0["file_path"] as? String)?.hasSuffix(".png") ?? false }
+        let backs = j["backdrops"] as? [[String: Any]] ?? []
+        return (pick(logos, prefer: "en"), pick(backs, prefer: nil))
+    }
+
+    @MainActor
+    static func art(for p: Pass, key: String?) async {
+        guard let id = p.tmdbID else { return }
+        let (logo, back) = await images(id, key: key)
+        if let logo { p.logoPath = logo }
+        if let back { p.backdropPath = back }
+    }
 }

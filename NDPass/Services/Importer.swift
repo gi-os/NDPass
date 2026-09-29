@@ -16,16 +16,17 @@ final class Importer: ObservableObject {
         defer { busy = false }
         let upright = Self.upright(image)
         var parsed = Parsed()
-        if AIConsent.granted {
-            step("Reading the ticket…")
+        if ReaderChoice.current == .claude && AIConsent.granted && Keys.get(.anthropic) != nil {
+            step("Reading the ticket with Claude…")
             do {
                 parsed = try await Parser.parse(upright, key: Keys.get(.anthropic))
             } catch {
-                lastError = error.localizedDescription
-                step("Couldn't read it: \(error.localizedDescription)")
+                step("Claude couldn't read it (\(error.localizedDescription)). Reading on this iPhone instead…")
+                parsed = await OnDeviceReader.read(upright)
             }
         } else {
-            step("Reading with Claude is off. Fill in the ticket by hand.")
+            step(OnDeviceReader.engine == .appleIntelligence ? "Reading the ticket on this iPhone…" : "Reading the ticket's text on this iPhone…")
+            parsed = await OnDeviceReader.read(upright)
         }
         if parsed.notATicket { lastError = "That doesn't look like a ticket."; step("Not a ticket."); return nil }
         step("\(parsed.title) · \(PassTimes.humanDate(parsed.date) ?? "no date") · \(parsed.time)")
@@ -72,7 +73,11 @@ final class Importer: ObservableObject {
             let matches = await TMDb.search(p.title, year: year, key: key)
             var m = matches.first
             if m == nil { m = await TMDb.search(p.title, key: key).first }
-            if let m { apply(m, to: p); p.runtime = await TMDb.runtime(m.id, key: key) }
+            if let m {
+                apply(m, to: p)
+                p.runtime = await TMDb.runtime(m.id, key: key)
+                await TMDb.art(for: p, key: key)
+            }
         } else if p.kind != .movie {
             step("Drawing art…")
             p.art = await EventArt.art(for: p.kind, title: p.title)

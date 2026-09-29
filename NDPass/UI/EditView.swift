@@ -100,7 +100,8 @@ struct MoviePicker: View {
     private func choose(_ m: MovieMatch) {
         Task {
             let runtime = await TMDb.runtime(m.id, key: Keys.get(.tmdb))
-            for p in passes { importer.apply(m, to: p); p.title = m.title; p.runtime = runtime }
+            for p in passes { importer.apply(m, to: p); p.title = m.title; p.runtime = runtime; p.logoPath = nil }
+            if let first = passes.first { await TMDb.art(for: first, key: Keys.get(.tmdb)); for p in passes.dropFirst() { p.logoPath = first.logoPath; p.backdropPath = first.backdropPath } }
             try? ctx.save()
             dismiss()
         }

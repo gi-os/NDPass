@@ -118,14 +118,15 @@ struct SettingsView: View {
     @State private var tmdb = Keys.get(.tmdb) ?? ""
     @State private var saved = false
     @State private var maps = Maps.preferred
-    @State private var ai = AIConsent.granted
+    @State private var reader = ReaderChoice.current
+    @State private var askConsent = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    SecureField("sk-ant-…", text: $anthropic).autocorrectionDisabled().textInputAutocapitalization(.never)
-                } header: { Text("Anthropic key") } footer: { Text("Claude Haiku reads your stubs. Without a key you type the fields yourself.") }
+                    SecureField("sk-ant-… (only for Claude)", text: $anthropic).autocorrectionDisabled().textInputAutocapitalization(.never)
+                } header: { Text("Anthropic key") } footer: { Text("Optional. Used only when Read tickets is set to Claude.") }
                 Section {
                     SecureField("TMDb API key", text: $tmdb).autocorrectionDisabled().textInputAutocapitalization(.never)
                 } header: { Text("TMDb key (optional)") } footer: { Text("Posters and film search.") }
@@ -140,8 +141,14 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    Toggle("Read tickets with Claude", isOn: $ai)
-                } footer: { Text("Scanning sends the ticket photo to Anthropic's Claude API with your key. Off: you type the details.") }
+                    Picker("Read tickets", selection: $reader) {
+                        ForEach(ReaderChoice.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                } footer: {
+                    Text(reader == .onDevice
+                         ? (OnDeviceReader.engine == .appleIntelligence ? "Read by Apple Intelligence on this iPhone. Nothing leaves your phone." : "Read on this iPhone from the ticket's text. Turn on Apple Intelligence for better results, or use Claude.")
+                         : "Sends the ticket photo to Anthropic's Claude API with the key below. Most accurate on worn or crumpled stubs.")
+                }
                 Section { Text("Keys are stored in the iOS Keychain on this phone.").font(.footnote).foregroundStyle(.secondary) }
                 Section("About") {
                     Link("Privacy policy", destination: URL(string: "https://gi-os.github.io/NDPass/privacy.html")!)
@@ -159,7 +166,17 @@ struct SettingsView: View {
             .onChange(of: anthropic) { _, _ in saved = false }
             .onChange(of: tmdb) { _, _ in saved = false }
             .onChange(of: maps) { _, v in Maps.preferred = v }
-            .onChange(of: ai) { _, v in AIConsent.granted = v }
+            .onChange(of: reader) { _, v in
+                if v == .claude && !AIConsent.granted { askConsent = true } else { ReaderChoice.current = v }
+            }
+            .sheet(isPresented: $askConsent) {
+                AIConsentSheet { ok in
+                    AIConsent.granted = ok
+                    reader = ok ? .claude : .onDevice
+                    ReaderChoice.current = reader
+                    askConsent = false
+                }
+            }
         }
     }
 }

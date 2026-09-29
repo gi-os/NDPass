@@ -48,9 +48,9 @@ struct CollectionView: View {
                     if groups.isEmpty {
                         Text("Nothing here yet.").font(Theme.sans(15)).foregroundStyle(Theme.muted).padding(.top, 40)
                     }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 16) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 14)], spacing: 18) {
                         ForEach(groups, id: \.first!.group) { g in
-                            NavigationLink(value: g[0].group) { StubThumb(passes: g) }.buttonStyle(.plain)
+                            NavigationLink(value: g[0].group) { TicketStub(passes: g) }.buttonStyle(.plain)
                         }
                     }
                 }

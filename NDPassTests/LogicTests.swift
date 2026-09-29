@@ -132,3 +132,35 @@ final class StubShapeTests: XCTestCase {
         XCTAssertTrue(p.contains(CGPoint(x: 150, y: 100)))
     }
 }
+
+final class OnDeviceReaderTests: XCTestCase {
+    func testDates() {
+        XCTAssertEqual(OnDeviceReader.date(in: "FRI DEC 18"), "12-18")
+        XCTAssertEqual(OnDeviceReader.date(in: "Date: 10/09/2026"), "2026-10-09")
+        XCTAssertEqual(OnDeviceReader.date(in: "October 9th, 2026 7:30 PM"), "2026-10-09")
+        XCTAssertEqual(OnDeviceReader.date(in: "2026-08-06"), "2026-08-06")
+        XCTAssertNil(OnDeviceReader.date(in: "Row F Seat 12"))
+    }
+
+    func testPatternsReadAStub() {
+        let lines = ["REGAL UNION SQUARE", "ONE BATTLE AFTER ANOTHER", "FRI OCT 9  7:30 PM", "AUD 12  ROW F SEAT 12", "ADULT $19.50", "Booking ref: A1B2C3D4"]
+        let p = OnDeviceReader.patterns(lines)
+        XCTAssertEqual(p.title, "ONE BATTLE AFTER ANOTHER")
+        XCTAssertEqual(p.venue, "REGAL UNION SQUARE")
+        XCTAssertEqual(p.time, "7:30 PM")
+        XCTAssertEqual(p.price, "$19.50")
+        XCTAssertEqual(p.date, "10-09")
+        XCTAssertEqual(p.code, "A1B2C3D4")
+        XCTAssertTrue(p.seat.contains("SEAT 12"))
+    }
+}
+
+final class TornStubTests: XCTestCase {
+    func testNotchesOnTheTear() {
+        let p = TornStubShape(corner: 18, notch: 9, atX: 0.7).path(in: CGRect(x: 0, y: 0, width: 300, height: 150))
+        XCTAssertFalse(p.contains(CGPoint(x: 210, y: 3)))
+        XCTAssertFalse(p.contains(CGPoint(x: 210, y: 147)))
+        XCTAssertTrue(p.contains(CGPoint(x: 210, y: 75)))
+        XCTAssertFalse(p.contains(CGPoint(x: 2, y: 2)))
+    }
+}

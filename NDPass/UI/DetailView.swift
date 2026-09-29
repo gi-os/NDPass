@@ -27,7 +27,7 @@ struct DetailView: View {
             if let p = passes.first {
                 ScrollView {
                     ZStack(alignment: .top) {
-                        CoverArt(pass: p).frame(height: 500).frame(maxWidth: .infinity)
+                        CoverArt(pass: p, preferBackdrop: p.backdropPath != nil).frame(height: 500).frame(maxWidth: .infinity)
                         LinearGradient(stops: [.init(color: Theme.bg.opacity(0.4), location: 0), .init(color: .clear, location: 0.22),
                                                .init(color: Theme.bg.opacity(0.9), location: 0.8), .init(color: Theme.bg, location: 1)],
                                        startPoint: .top, endPoint: .bottom).frame(height: 500)
@@ -76,7 +76,11 @@ struct DetailView: View {
     private func titleBlock(_ p: Pass) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(kindLine(p)).font(Theme.mono(12)).tracking(1.6).foregroundStyle(Theme.amber)
-            Text(p.title).font(Theme.serif(52)).foregroundStyle(Theme.ink).lineLimit(3).minimumScaleFactor(0.55)
+            if p.logoURL != nil {
+                TitleMark(pass: p, maxHeight: 110, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(p.title).font(Theme.serif(52)).foregroundStyle(Theme.ink).lineLimit(3).minimumScaleFactor(0.55)
+            }
         }
     }
 

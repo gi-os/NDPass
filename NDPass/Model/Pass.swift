@@ -24,6 +24,7 @@ final class Pass {
     var tmdbID: Int?
     var posterPath: String?
     var backdropPath: String?
+    var logoPath: String?
     var overview: String?
     var runtime: Int?
     var scannedCode: String?
@@ -48,7 +49,8 @@ final class Pass {
     var sortDate: Date { start ?? PassTimes.day(date) ?? createdAt }
     var posterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w500\($0)") } }
     var bigPosterURL: URL? { posterPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w780\($0)") } }
-    var backdropURL: URL? { backdropPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w780\($0)") } }
+    var logoURL: URL? { logoPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w500\($0)") } }
+    var backdropURL: URL? { backdropPath.flatMap { URL(string: "https://image.tmdb.org/t/p/w1280\($0)") } }
 
     /// Same kind, title, venue, date and time: the same showing.
     func sameShowing(as other: Pass) -> Bool {

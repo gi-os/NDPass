@@ -56,7 +56,8 @@ struct ScanMenu<Label: View>: View {
     }
 
     private func ask(_ then: @escaping () -> Void) {
-        if AIConsent.asked { then() } else { next = then; consent = true }
+        // Only Claude sends anything off the phone, so only Claude needs asking.
+        if ReaderChoice.current == .onDevice || AIConsent.asked { then() } else { next = then; consent = true }
     }
 
     private func run(_ img: UIImage) async {
