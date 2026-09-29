@@ -166,7 +166,7 @@ struct SettingsView: View {
                     Link(destination: URL(string: "https://www.thesportsdb.com")!) {
                         Text("Team crests from TheSportsDB").foregroundStyle(Theme.ink)
                     }
-                    Text("Concert art from Apple Music's catalog").foregroundStyle(Theme.ink)
+                    Text("Artist photos from Deezer; album art from Apple").foregroundStyle(Theme.ink)
                     Text("NDPass \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")").foregroundStyle(.secondary)
                 }
             }

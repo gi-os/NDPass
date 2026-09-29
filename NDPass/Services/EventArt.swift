@@ -3,14 +3,29 @@ import UIKit
 /// Poster art for tickets that aren't films: two team crests cut across a diagonal for a
 /// game, a drawn note for a concert. Best effort; any failure means the ticket shows its photo.
 enum EventArt {
+    /// Art for a game or concert, and the proper name while we're at it: the teams as the
+    /// league spells them, the artist as they're billed.
+    static func decorate(_ p: Pass) async {
+        guard p.kind != .movie else { return }
+        let (data, name) = await artAndName(for: p.kind, title: p.title, context: p.venue)
+        if let data { p.art = data }
+        if let name, !name.isEmpty { p.title = name }
+        else if p.title == p.title.lowercased(), let t = PassTimes.titleCase(p.title) { p.title = t }
+    }
+
     static func art(for kind: EventKind, title: String, context: String = "") async -> Data? {
+        await artAndName(for: kind, title: title, context: context).0
+    }
+
+    static func artAndName(for kind: EventKind, title: String, context: String) async -> (Data?, String?) {
         switch kind {
-        case .movie: return nil
+        case .movie: return (nil, nil)
         case .concert:
-            if let hit = await Artists.cover(for: title) { return Artists.card(hit.image).jpegData(compressionQuality: 0.88) }
-            return musicCard().pngData()
+            // The artist's photo, full frame.
+            if let hit = await Artists.photo(for: title) { return (hit.image.jpegData(compressionQuality: 0.88), hit.name) }
+            return (musicCard().pngData(), nil)
         case .sports:
-            guard let (a, b) = Matchup.split(title) else { return nil }
+            guard let (a, b) = Matchup.split(title) else { return (nil, nil) }
             // With a TheSportsDB key: each team's crest on its own color. Without one, or if a
             // team isn't found, its name set in type on that side.
             if let key = Keys.get(.sportsdb) {
@@ -19,11 +34,15 @@ enum EventArt {
                     async let ia = Teams.badge(ta)
                     async let ib = Teams.badge(tb)
                     let (ba, bb) = await (ia, ib)
-                    return split(home: (ta?.name ?? a, ba, ta?.colors ?? []), away: (tb?.name ?? b, bb, tb?.colors ?? []), seed: title)
-                        .jpegData(compressionQuality: 0.9)
+                    func colors(_ t: Team?, _ img: UIImage?) -> [UIColor] {
+                        if let cs = t?.colors, !cs.isEmpty { return cs }
+                        return img.flatMap(Teams.mainColor).map { [$0] } ?? []
+                    }
+                    let img = split(home: (ta?.name ?? a, ba, colors(ta, ba)), away: (tb?.name ?? b, bb, colors(tb, bb)), seed: title)
+                    return (img.jpegData(compressionQuality: 0.9), "\(ta?.name ?? a) vs \(tb?.name ?? b)")
                 }
             }
-            return matchCard(a, b).jpegData(compressionQuality: 0.9)
+            return (matchCard(a, b).jpegData(compressionQuality: 0.9), nil)
         }
     }
 

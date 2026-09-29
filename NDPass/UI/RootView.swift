@@ -67,15 +67,15 @@ struct RootView: View {
             imported = ExpoImport.runIfNeeded(ctx)
         }
         .task {
-            // Games and concerts saved before crests and album art: draw them again, once
-            // (and again for games after a TheSportsDB key is added).
+            // Every game and concert drawn again with the current design, once (art3: women's
+            // rosters and crest colors), and again after a TheSportsDB key is added.
             guard !Demo.active else { return }
-            let tag = Keys.get(.sportsdb) == nil ? "art2" : "art2+sdb"
+            let tag = Keys.get(.sportsdb) == nil ? "art4" : "art4+sdb"
             let d = Store.defaults
             var done = Set(d.stringArray(forKey: tag) ?? [])
             let events = ((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).filter { $0.kind != .movie && !done.contains($0.id.uuidString) }
             for p in events {
-                if let art = await EventArt.art(for: p.kind, title: p.title, context: p.venue) { p.art = art }
+                await EventArt.decorate(p)
                 done.insert(p.id.uuidString)
             }
             try? ctx.save()

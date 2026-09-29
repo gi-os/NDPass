@@ -251,7 +251,8 @@ struct TitleMark: View {
     }
 
     private var fallback: some View {
-        Text(pass.title).font(Theme.serif(fallbackSize)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.5)
+        // Titles read off a ticket in all lowercase get their capitals back.
+        Text(pass.title == pass.title.lowercased() ? (PassTimes.titleCase(pass.title) ?? pass.title) : pass.title).font(Theme.serif(fallbackSize)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.5)
             .multilineTextAlignment(alignment == .leading ? .leading : .center)
     }
 }

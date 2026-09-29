@@ -132,8 +132,8 @@ final class Importer: ObservableObject {
                 await TMDb.art(for: p, key: key)
             }
         } else if p.kind != .movie {
-            step("Drawing art…")
-            p.art = await EventArt.art(for: p.kind, title: p.title, context: p.venue)
+            step(p.kind == .concert ? "Finding the artist…" : "Finding the teams…")
+            await EventArt.decorate(p)
         }
     }
 

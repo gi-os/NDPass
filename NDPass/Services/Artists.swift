@@ -41,6 +41,34 @@ enum Artists {
         return (best["artistName"] as? String ?? who, image)
     }
 
+    /// The artist's photo, full frame, from Deezer's public catalog (no key). Falls back to
+    /// the album cover from Apple when Deezer has no picture.
+    static func photo(for title: String) async -> (name: String, image: UIImage)? {
+        let who = headliner(title)
+        guard !who.isEmpty, var c = URLComponents(string: "https://api.deezer.com/search/artist") else { return nil }
+        c.queryItems = [URLQueryItem(name: "q", value: who), URLQueryItem(name: "limit", value: "5")]
+        if let u = c.url, let (d, _) = try? await URLSession.shared.data(from: u),
+           let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let list = j["data"] as? [[String: Any]] {
+            let key = who.lowercased()
+            let usable = list.filter { a in
+                guard let pic = a["picture_xl"] as? String, !pic.contains("/artist//") else { return false }
+                let n = (a["name"] as? String ?? "").lowercased()
+                return n == key || n.contains(key) || key.contains(n)
+            }
+            // The exact name first, then the one more people follow.
+            let best = usable.max { a, b in
+                let ea = (a["name"] as? String ?? "").lowercased() == key, eb = (b["name"] as? String ?? "").lowercased() == key
+                if ea != eb { return !ea }
+                return (a["nb_fan"] as? Int ?? 0) < (b["nb_fan"] as? Int ?? 0)
+            }
+            if let best, let pic = best["picture_xl"] as? String, let pu = URL(string: pic),
+               let (img, _) = try? await URLSession.shared.data(from: pu), let image = UIImage(data: img) {
+                return (best["name"] as? String ?? who, image)
+            }
+        }
+        return await cover(for: title)
+    }
+
     /// The cover sharp in the middle of itself, blurred and darkened, square.
     static func card(_ cover: UIImage) -> UIImage {
         let size = CGSize(width: 1000, height: 1000)
