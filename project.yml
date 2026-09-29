@@ -82,7 +82,7 @@ targets:
               NSExtensionActivationSupportsText: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.share
+        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.NDPassShare
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
   NDPassWidgets:
@@ -109,7 +109,7 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.NextShowingWidget
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
   NDPassTests:
