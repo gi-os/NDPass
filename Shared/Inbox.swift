@@ -12,7 +12,7 @@ struct InboxItem: Codable {
 }
 
 enum Inbox {
-    static let group = "group.com.gios.ndpass"
+    static let group = "group.com.gios.ndpass.shared"
 
     static var root: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appendingPathComponent("Inbox", isDirectory: true)
