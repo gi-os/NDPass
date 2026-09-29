@@ -148,34 +148,7 @@ schemes:
     build:
       targets:
         NDPass: all
-        NDPassWidgets:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: NDPassWidgets
-      - path: Shared/Countdown.swift
-      - path: NDPass/Resources/Geist.ttf
-      - path: NDPass/Resources/GeistMono.ttf
-      - path: NDPass/Resources/InstrumentSerif-Regular.ttf
-    entitlements:
-      path: NDPassWidgets/NDPassWidgets.entitlements
-      properties:
-        com.apple.security.application-groups: [group.com.gios.ndpass]
-    info:
-      path: NDPassWidgets/Info.plist
-      properties:
-        CFBundleDisplayName: NDPass
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        UIAppFonts: [InstrumentSerif-Regular.ttf, Geist.ttf, GeistMono.ttf]
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.widgets
-        GENERATE_INFOPLIST_FILE: NO
-        SKIP_INSTALL: YES
-  NDPassTests: [test]
+        NDPassTests: [test]
     test:
       targets:
         - NDPassTests
