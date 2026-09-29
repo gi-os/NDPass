@@ -124,7 +124,7 @@ struct StubThumb: View {
     var body: some View {
         let p = passes[0]
         VStack(alignment: .leading, spacing: 6) {
-            CoverArt(pass: p)
+            TicketArt(pass: p, logoHeight: height * 0.3)
                 .frame(height: height)
                 .clipShape(StubShape(corner: 16, notch: 8, at: 0.62))
                 .overlay(alignment: .topTrailing) {

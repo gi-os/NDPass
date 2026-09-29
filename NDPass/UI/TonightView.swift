@@ -48,9 +48,9 @@ struct TonightView: View {
                 topBar.padding(.top, 62).padding(.horizontal, 20)
                 Group {
                     if let p = g?.first, p.logoURL != nil {
-                        TitleMark(pass: p, maxHeight: 96, alignment: .leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 24)
+                        TitleMark(pass: p, maxHeight: 96, alignment: .center)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal, 32)
                     } else { Color.clear }
                 }
                 .frame(height: 168, alignment: .bottom)
@@ -135,7 +135,7 @@ struct TonightView: View {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(gs, id: \.first!.group) { g in
-                        NavigationLink(value: g[0].group) { TicketStub(passes: g, height: 128).frame(width: 300) }
+                        NavigationLink(value: g[0].group) { StubThumb(passes: g, height: 118).frame(width: 128) }
                             .buttonStyle(.plain)
                     }
                 }
