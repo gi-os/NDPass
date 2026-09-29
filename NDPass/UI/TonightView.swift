@@ -45,12 +45,24 @@ struct TonightView: View {
                     let pull = max(0, proxy.frame(in: .scrollView(axis: .vertical)).minY)
                     return content.scaleEffect(1 + pull / 560, anchor: .bottom)
                 }
-            LinearGradient(stops: [.init(color: Theme.bg.opacity(0.35), location: 0), .init(color: .clear, location: 0.25),
+            // The fade into the page rides with the art's bottom edge.
+            LinearGradient(stops: [.init(color: .clear, location: 0.25),
                                    .init(color: Theme.bg.opacity(0.85), location: 0.78), .init(color: Theme.bg, location: 1)],
                            startPoint: .top, endPoint: .bottom)
                 .frame(height: 560)
+            // Pulling down past the top: the shade behind the logo and + and the bar itself stay
+            // pinned to the top of the screen; only the art stretches under them.
+            LinearGradient(colors: [Theme.bg.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 140)
+                .visualEffect { content, proxy in
+                    content.offset(y: -max(0, proxy.frame(in: .scrollView(axis: .vertical)).minY))
+                }
+                .allowsHitTesting(false)
             VStack(spacing: 0) {
                 topBar.padding(.top, 62).padding(.horizontal, 20)
+                    .visualEffect { content, proxy in
+                        content.offset(y: -max(0, proxy.frame(in: .scrollView(axis: .vertical)).minY))
+                    }
                 Group {
                     if let p = g?.first, p.logoURL != nil {
                         TitleMark(pass: p, maxHeight: 96, alignment: .center)
