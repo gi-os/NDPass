@@ -133,7 +133,7 @@ final class Importer: ObservableObject {
             }
         } else if p.kind != .movie {
             step("Drawing art…")
-            p.art = await EventArt.art(for: p.kind, title: p.title)
+            p.art = await EventArt.art(for: p.kind, title: p.title, context: p.venue)
         }
     }
 

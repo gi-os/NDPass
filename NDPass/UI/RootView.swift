@@ -67,6 +67,21 @@ struct RootView: View {
             imported = ExpoImport.runIfNeeded(ctx)
         }
         .task {
+            // Games and concerts saved before crests and album art: draw them again, once
+            // (and again for games after a TheSportsDB key is added).
+            guard !Demo.active else { return }
+            let tag = Keys.get(.sportsdb) == nil ? "art2" : "art2+sdb"
+            let d = Store.defaults
+            var done = Set(d.stringArray(forKey: tag) ?? [])
+            let events = ((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).filter { $0.kind != .movie && !done.contains($0.id.uuidString) }
+            for p in events {
+                if let art = await EventArt.art(for: p.kind, title: p.title, context: p.venue) { p.art = art }
+                done.insert(p.id.uuidString)
+            }
+            try? ctx.save()
+            d.set(Array(done), forKey: tag)
+        }
+        .task {
             guard !Demo.active, let key = Keys.get(.tmdb) else { return }
             let checked = Set(UserDefaults.standard.stringArray(forKey: "logoChecked") ?? [])
             let todo = ((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).filter { $0.tmdbID != nil && $0.logoPath == nil && !checked.contains($0.id.uuidString) }

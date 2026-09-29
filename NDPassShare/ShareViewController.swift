@@ -184,10 +184,12 @@ struct ShareTicket: View {
             VStack(spacing: 0) {
                 field("Title", $pass.title)
                 field("Venue", $pass.venue)
-                HStack(spacing: 0) {
-                    field("Date", $pass.date, placeholder: "yyyy-mm-dd")
-                    field("Time", $pass.time, placeholder: "7:30 PM")
+                HStack(spacing: 18) {
+                    DateField(text: $pass.date)
+                    TimeField(text: $pass.time)
                 }
+                .font(Theme.sans(10, .medium)).foregroundStyle(Theme.muted)
+                .padding(.horizontal, 16).padding(.vertical, 6)
                 field("Seat", $pass.seat, mono: true)
             }
             .padding(.vertical, 6)

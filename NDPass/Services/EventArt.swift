@@ -3,15 +3,75 @@ import UIKit
 /// Poster art for tickets that aren't films: two team crests cut across a diagonal for a
 /// game, a drawn note for a concert. Best effort; any failure means the ticket shows its photo.
 enum EventArt {
-    static func art(for kind: EventKind, title: String) async -> Data? {
+    static func art(for kind: EventKind, title: String, context: String = "") async -> Data? {
         switch kind {
         case .movie: return nil
-        case .concert: return musicCard().pngData()
+        case .concert:
+            if let hit = await Artists.cover(for: title) { return Artists.card(hit.image).jpegData(compressionQuality: 0.88) }
+            return musicCard().pngData()
         case .sports:
-            // Team names set as a versus card. (Crests came from ESPN's unofficial API, which
-            // isn't something to ship in a store app.)
             guard let (a, b) = Matchup.split(title) else { return nil }
+            // With a TheSportsDB key: each team's crest on its own color. Without one, or if a
+            // team isn't found, its name set in type on that side.
+            if let key = Keys.get(.sportsdb) {
+                let (ta, tb) = await Teams.matchup(a, b, context: title + " " + context, key: key)
+                if ta != nil || tb != nil {
+                    async let ia = Teams.badge(ta)
+                    async let ib = Teams.badge(tb)
+                    let (ba, bb) = await (ia, ib)
+                    return split(home: (ta?.name ?? a, ba, ta?.colors ?? []), away: (tb?.name ?? b, bb, tb?.colors ?? []), seed: title)
+                        .jpegData(compressionQuality: 0.9)
+                }
+            }
             return matchCard(a, b).jpegData(compressionQuality: 0.9)
+        }
+    }
+
+    /// A square cut on the diagonal: the home side in its color with its crest top-left, the
+    /// away side in theirs bottom-right. Square so it crops well as a poster or a banner.
+    static func split(home: (String, UIImage?, [UIColor]), away: (String, UIImage?, [UIColor]), seed: String) -> UIImage {
+        let size = CGSize(width: 1000, height: 1000)
+        let warm = [UIColor(red: 0.94, green: 0.54, blue: 0.24, alpha: 1), UIColor(red: 0.35, green: 0.18, blue: 0.09, alpha: 1)]
+        func base(_ cs: [UIColor], fallback: UIColor) -> UIColor {
+            // Skip near-white and near-black so the crest has something to sit on.
+            let usable = cs.first { c in var w: CGFloat = 0; c.getWhite(&w, alpha: nil); return w > 0.1 && w < 0.9 }
+            return usable ?? cs.first ?? fallback
+        }
+        let ca = base(home.2, fallback: warm[0]), cb = base(away.2, fallback: warm[1])
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let c = ctx.cgContext
+            func fill(_ color: UIColor, _ pts: [CGPoint]) {
+                c.saveGState()
+                c.move(to: pts[0]); pts.dropFirst().forEach { c.addLine(to: $0) }; c.closePath(); c.clip()
+                let dark = color.blended(with: .black, 0.45)
+                let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [color.cgColor, dark.cgColor] as CFArray, locations: [0, 1])!
+                c.drawLinearGradient(g, start: pts[0], end: pts[2], options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+                c.restoreGState()
+            }
+            fill(ca, [.zero, CGPoint(x: size.width, y: 0), CGPoint(x: 0, y: size.height)])
+            fill(cb, [CGPoint(x: size.width, y: size.height), CGPoint(x: 0, y: size.height), CGPoint(x: size.width, y: 0)])
+            // The seam.
+            c.setStrokeColor(UIColor.black.withAlphaComponent(0.35).cgColor); c.setLineWidth(6)
+            c.move(to: CGPoint(x: size.width, y: 0)); c.addLine(to: CGPoint(x: 0, y: size.height)); c.strokePath()
+
+            func crest(_ side: (String, UIImage?, [UIColor]), center: CGPoint, color: UIColor) {
+                let box = CGRect(x: center.x - 150, y: center.y - 150, width: 300, height: 300)
+                if let img = side.1 {
+                    let s = min(box.width / img.size.width, box.height / img.size.height)
+                    let r = CGRect(x: center.x - img.size.width * s / 2, y: center.y - img.size.height * s / 2, width: img.size.width * s, height: img.size.height * s)
+                    c.setShadow(offset: CGSize(width: 0, height: 10), blur: 30, color: UIColor.black.withAlphaComponent(0.45).cgColor)
+                    img.draw(in: r)
+                    c.setShadow(offset: .zero, blur: 0, color: nil)
+                } else {
+                    var w: CGFloat = 0; color.getWhite(&w, alpha: nil)
+                    let ink: UIColor = w > 0.6 ? UIColor(red: 0.11, green: 0.05, blue: 0.02, alpha: 1) : UIColor(red: 0.96, green: 0.91, blue: 0.85, alpha: 1)
+                    let p = NSMutableParagraphStyle(); p.alignment = .center
+                    let font = UIFont(name: "InstrumentSerif-Regular", size: 84) ?? .systemFont(ofSize: 72, weight: .black)
+                    (side.0 as NSString).draw(with: box, options: [.usesLineFragmentOrigin], attributes: [.font: font, .foregroundColor: ink, .paragraphStyle: p], context: nil)
+                }
+            }
+            crest(home, center: CGPoint(x: 320, y: 400), color: ca)
+            crest(away, center: CGPoint(x: 680, y: 600), color: cb)
         }
     }
 
@@ -60,5 +120,14 @@ enum EventArt {
                 note.draw(in: CGRect(x: 150, y: 250, width: 300, height: 400))
             }
         }
+    }
+}
+
+private extension UIColor {
+    func blended(with other: UIColor, _ t: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        getRed(&r1, green: &g1, blue: &b1, alpha: &a1); other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        return UIColor(red: r1 + (r2 - r1) * t, green: g1 + (g2 - g1) * t, blue: b1 + (b2 - b1) * t, alpha: 1)
     }
 }

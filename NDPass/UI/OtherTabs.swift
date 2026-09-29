@@ -116,6 +116,7 @@ struct StatsView: View {
 struct SettingsView: View {
     @State private var anthropic = Keys.get(.anthropic) ?? ""
     @State private var tmdb = Keys.get(.tmdb) ?? ""
+    @State private var sportsdb = Keys.get(.sportsdb) ?? ""
     @State private var saved = false
     @State private var maps = Maps.preferred
     @State private var reader = ReaderChoice.current
@@ -131,13 +132,16 @@ struct SettingsView: View {
                     SecureField("TMDb API key", text: $tmdb).autocorrectionDisabled().textInputAutocapitalization(.never)
                 } header: { Text("TMDb key (optional)") } footer: { Text("Posters and film search.") }
                 Section {
+                    SecureField("TheSportsDB API key", text: $sportsdb).autocorrectionDisabled().textInputAutocapitalization(.never)
+                } header: { Text("TheSportsDB key (optional)") } footer: { Text("Team crests and colors for games, women's leagues included. Get a key at thesportsdb.com.") }
+                Section {
                     Picker("Directions in", selection: $maps) {
                         ForEach(Maps.App.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                 } footer: { Text(Maps.googleInstalled ? "Tapping a venue opens directions here." : "Google Maps isn't installed, so it opens in the browser.") }
                 Section {
                     Button(saved ? "Saved" : "Save keys") {
-                        Keys.set(.anthropic, anthropic); Keys.set(.tmdb, tmdb); saved = true
+                        Keys.set(.anthropic, anthropic); Keys.set(.tmdb, tmdb); Keys.set(.sportsdb, sportsdb); saved = true
                     }
                 }
                 Section {
@@ -159,12 +163,17 @@ struct SettingsView: View {
                             Text("This product uses the TMDB API but is not endorsed or certified by TMDB.").font(.footnote).foregroundStyle(.secondary)
                         }
                     }
+                    Link(destination: URL(string: "https://www.thesportsdb.com")!) {
+                        Text("Team crests from TheSportsDB").foregroundStyle(Theme.ink)
+                    }
+                    Text("Concert art from Apple Music's catalog").foregroundStyle(Theme.ink)
                     Text("NDPass \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")").foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Settings")
             .onChange(of: anthropic) { _, _ in saved = false }
             .onChange(of: tmdb) { _, _ in saved = false }
+            .onChange(of: sportsdb) { _, _ in saved = false }
             .onChange(of: maps) { _, v in Maps.preferred = v }
             .onChange(of: reader) { _, v in
                 if v == .claude && !AIConsent.granted { askConsent = true } else { ReaderChoice.current = v }

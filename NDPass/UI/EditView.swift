@@ -28,9 +28,9 @@ struct EditView: View {
                     }
                 }
                 Section {
-                    TextField("Date (2026-08-06 or 08-06)", text: $date).keyboardType(.numbersAndPunctuation)
-                    TextField("Time (7:30 PM)", text: $time)
-                } footer: { Text("A date without a year means its next occurrence.") }
+                    DateField(text: $date)
+                    TimeField(text: $time)
+                }
                 Section {
                     TextField("Seat", text: $seat)
                     TextField("Price", text: $price)

@@ -3,7 +3,7 @@ import Security
 
 /// API keys live in the Keychain, never in UserDefaults.
 enum Keys {
-    enum Name: String { case anthropic = "anthropic-key", tmdb = "tmdb-key" }
+    enum Name: String { case anthropic = "anthropic-key", tmdb = "tmdb-key", sportsdb = "sportsdb-key" }
 
     static func get(_ n: Name) -> String? {
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.gios.ndpass",

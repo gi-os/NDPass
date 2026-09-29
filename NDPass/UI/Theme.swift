@@ -318,3 +318,62 @@ struct TicketStub: View {
         PassTimes.day(p.date).map { String(Calendar.current.component(.day, from: $0)) } ?? "?"
     }
 }
+
+/// A ticket's date and time as real pickers, stored as the "yyyy-MM-dd" and "7:30 PM"
+/// strings the rest of the app reads. Empty until you tap to add one.
+enum WhenFormat {
+    static func formatter(_ f: String) -> DateFormatter {
+        let d = DateFormatter(); d.locale = Locale(identifier: "en_US_POSIX"); d.dateFormat = f; return d
+    }
+    static let day = formatter("yyyy-MM-dd")
+    static let clock = formatter("h:mm a")
+
+    static func date(_ s: String) -> Date? { day.date(from: s) }
+    static func time(_ s: String) -> Date? {
+        let t = s.trimmingCharacters(in: .whitespaces).uppercased()
+        guard let parsed = clock.date(from: t) ?? formatter("H:mm").date(from: t) else { return nil }
+        let c = Calendar.current.dateComponents([.hour, .minute], from: parsed)
+        return Calendar.current.date(bySettingHour: c.hour ?? 19, minute: c.minute ?? 0, second: 0, of: Date())
+    }
+}
+
+struct DateField: View {
+    var label = "Date"
+    @Binding var text: String
+
+    var body: some View {
+        let bound = Binding<Date>(
+            get: { WhenFormat.date(text) ?? Date() },
+            set: { text = WhenFormat.day.string(from: $0) })
+        HStack {
+            Text(label)
+            Spacer()
+            if WhenFormat.date(text) != nil {
+                DatePicker(label, selection: bound, displayedComponents: .date).labelsHidden()
+            } else {
+                Button(text.isEmpty ? "Add date" : "Fix “\(text)”") { text = WhenFormat.day.string(from: Date()) }
+                    .tint(Theme.accent)
+            }
+        }
+    }
+}
+
+struct TimeField: View {
+    var label = "Time"
+    @Binding var text: String
+
+    var body: some View {
+        let bound = Binding<Date>(
+            get: { WhenFormat.time(text) ?? Calendar.current.date(bySettingHour: 19, minute: 30, second: 0, of: Date())! },
+            set: { text = WhenFormat.clock.string(from: $0) })
+        HStack {
+            Text(label)
+            Spacer()
+            if WhenFormat.time(text) != nil {
+                DatePicker(label, selection: bound, displayedComponents: .hourAndMinute).labelsHidden()
+            } else {
+                Button(text.isEmpty ? "Add time" : "Fix “\(text)”") { text = "7:30 PM" }.tint(Theme.accent)
+            }
+        }
+    }
+}
