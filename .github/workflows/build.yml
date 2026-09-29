@@ -13,6 +13,11 @@ on:
       - 'docs/**'
       - 'fastlane/metadata/**'
   workflow_dispatch:
+    inputs:
+      force_profiles:
+        description: "Remake provisioning profiles (after adding a capability)"
+        type: boolean
+        default: false
 
 # One upload at a time per repo; the build number is the run number.
 concurrency:
@@ -30,6 +35,7 @@ jobs:
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_AUTH }}
       BUILD_NUMBER: ${{ github.run_number }}
+      MATCH_FORCE: ${{ inputs.force_profiles }}
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode

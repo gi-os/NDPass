@@ -47,7 +47,9 @@ platform :ios do
       git_url: "https://github.com/gi-os/ios-certs.git",
       storage_mode: "git",
       api_key: api_key,
-      readonly: false
+      readonly: false,
+      # Set when capabilities change (e.g. App Groups added) so profiles are made again.
+      force: ENV["MATCH_FORCE"] == "true"
     )
 
     # The one thing the API cannot do is create the App Store Connect app record.
