@@ -64,7 +64,12 @@ final class TimesTests: XCTestCase {
         XCTAssertEqual(PassTimes.normalizeTime("1:30 AM"), "1:30 PM")
         XCTAssertEqual(PassTimes.normalizeTime("11:15 a.m."), "11:15 AM")
         XCTAssertEqual(PassTimes.normalizeTime("7:05pm"), "7:05 PM")
-        XCTAssertEqual(PassTimes.normalizeTime("19:30"), "19:30")
+        XCTAssertEqual(PassTimes.normalizeTime("19:30"), "7:30 PM")
+        XCTAssertEqual(PassTimes.normalizeTime("7:30"), "7:30 PM")
+        XCTAssertEqual(PassTimes.normalizeTime("10:45"), "10:45 AM")
+        XCTAssertEqual(PassTimes.normalizeTime("0:15"), "12:15 AM")
+        XCTAssertEqual(PassTimes.display("KNICKS VS CELTICS"), "Knicks vs Celtics")
+        XCTAssertEqual(PassTimes.display("The xx"), "The xx")
     }
 
     func testHumanDate() {

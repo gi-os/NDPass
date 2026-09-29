@@ -76,7 +76,7 @@ enum PassTimes {
 
     static func titleCase(_ s: String?) -> String? {
         guard let s, !s.isEmpty else { return s }
-        let small: Set<String> = ["of", "the", "at", "and", "in", "on", "a"]
+        let small: Set<String> = ["of", "the", "at", "and", "in", "on", "a", "vs", "vs.", "v"]
         let words = s.lowercased().split(separator: " ").enumerated().map { i, w -> String in
             let w = String(w)
             if i > 0 && small.contains(w) { return w }
