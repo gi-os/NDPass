@@ -60,3 +60,27 @@ enum Artists {
         }
     }
 }
+
+/// Titles NDPass keeps: a game is "Team 1 vs Team 2", a concert is the band.
+enum EventTitle {
+    static func clean(_ title: String, kind: EventKind) -> String {
+        switch kind {
+        case .movie: return title
+        case .sports:
+            guard let (a, b) = Matchup.split(title) else { return title }
+            func team(_ s: String) -> String {
+                // Drop "NBA:", "Game 3", dates and "presented by" tails a stub adds around the names.
+                var t = s.replacingOccurrences(of: #"(?i)^(nba|wnba|nfl|nhl|mlb|mls|nwsl|pwhl|ncaa)\s*[:\-–]\s*"#, with: "", options: .regularExpression)
+                for sep in [" - ", " – ", " — ", ": ", " | ", " presented by ", " game ", " (", ","] {
+                    if let r = t.range(of: sep, options: .caseInsensitive) { t = String(t[..<r.lowerBound]) }
+                }
+                return t.trimmingCharacters(in: .whitespaces)
+            }
+            let x = team(a), y = team(b)
+            return x.isEmpty || y.isEmpty ? title : "\(x) vs \(y)"
+        case .concert:
+            let h = Artists.headliner(title)
+            return h.isEmpty ? title : h
+        }
+    }
+}

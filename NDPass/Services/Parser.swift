@@ -39,7 +39,7 @@ enum Parser {
         the following. Return ONLY valid JSON, no markdown, no backticks, no explanation.
         {
           "kind": "movie" | "sports" | "concert",
-          "movieTitle": "exact event title on ticket (film title, matchup like 'Knicks vs Celtics', or artist/tour name)",
+          "movieTitle": "film: the film title; game: only the two teams as 'Team 1 vs Team 2' (e.g. 'Knicks vs Celtics'); concert: only the band or artist name, no tour name",
           "theater": "theater/cinema, stadium/arena, or venue name",
           "date": "YYYY-MM-DD if a year is printed on the ticket, otherwise MM-DD",
           "time": "h:mm AM/PM",

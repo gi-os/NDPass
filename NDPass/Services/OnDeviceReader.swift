@@ -76,7 +76,7 @@ enum OnDeviceReader {
     struct Fields {
         @Guide(description: "What the ticket is for: movie, sports or concert")
         var kind: String
-        @Guide(description: "The film title, the matchup like 'Knicks vs Celtics', or the artist or tour name, exactly as printed")
+        @Guide(description: "For a film, its title. For a game, only the two teams as 'Team 1 vs Team 2', like 'Knicks vs Celtics'. For a concert, only the band or artist name, no tour name")
         var title: String
         @Guide(description: "The cinema, stadium, arena or venue name")
         var venue: String

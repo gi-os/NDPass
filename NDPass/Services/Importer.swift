@@ -40,7 +40,7 @@ final class Importer: ObservableObject {
 
         let crop = parsed.box.flatMap { Self.crop(upright, to: $0) }
         if parsed.seller == nil { parsed.seller = Seller.detect(text: parsed.rawText + " " + parsed.title + " " + parsed.venue, url: sourceURL) }
-        let p = Pass(title: parsed.title)
+        let p = Pass(title: EventTitle.clean(parsed.title, kind: parsed.kind))
         p.kind = parsed.kind
         p.venue = parsed.venue
         p.date = parsed.date
@@ -98,7 +98,7 @@ final class Importer: ObservableObject {
         var parsed = await OnDeviceReader.read(lines: body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
         if parsed.notATicket || parsed.title == "Untitled" && parsed.date.isEmpty { lastError = "Couldn't find a ticket in that."; step("No ticket found."); return nil }
         parsed.seller = Seller.detect(text: body, url: sourceURL)
-        let p = Pass(title: parsed.title)
+        let p = Pass(title: EventTitle.clean(parsed.title, kind: parsed.kind))
         p.kind = parsed.kind; p.venue = parsed.venue; p.date = parsed.date; p.time = parsed.time
         p.seat = parsed.seat; p.price = parsed.price; p.bookingCode = parsed.code; p.confidence = parsed.confidence
         p.sourceURL = sourceURL
