@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import NDPass
 
 final class TicketDateTests: XCTestCase {
@@ -188,5 +189,31 @@ final class TeamColorTests: XCTestCase {
     }
     func testEveryEntryHasColors() {
         XCTAssertTrue(TeamColors.all.allSatisfy { !$0.hex.isEmpty })
+    }
+}
+
+@MainActor
+final class StatsTests: XCTestCase {
+    func testStreaksAndHabits() throws {
+        let c = try ModelContainer(for: Pass.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let ctx = c.mainContext
+        func add(_ title: String, _ date: String, _ time: String, _ kind: EventKind, seat: String = "", price: String = "") {
+            let p = Pass(title: title); p.date = date; p.time = time; p.kind = kind; p.seat = seat; p.price = price; p.venue = "Metrograph"
+            ctx.insert(p)
+        }
+        // Three Fridays in a row, then a gap.
+        add("Knicks vs Celtics", "2026-03-06", "7:30 PM", .sports, seat: "F12", price: "$80")
+        add("Mitski", "2026-03-13", "8:00 PM", .concert, seat: "F3", price: "$60")
+        add("Past Lives", "2026-03-20", "7:00 PM", .movie, seat: "G8", price: "$18")
+        add("Past Lives", "2026-05-01", "7:00 PM", .movie, seat: "F1")
+        let s = Stats(try ctx.fetch(FetchDescriptor<Pass>()), now: WhenFormat.day.date(from: "2026-06-01")!)
+        XCTAssertEqual(s.visits, 4)
+        XCTAssertEqual(s.longestStreak, 3)
+        XCTAssertEqual(s.currentStreak, 0)
+        XCTAssertEqual(s.favoriteDay, "Friday")
+        XCTAssertEqual(s.usualTime, "Evenings")
+        XCTAssertEqual(s.favoriteRow?.0, "F")
+        XCTAssertEqual(s.mostSeen?.0, "Past Lives")
+        XCTAssertEqual(s.spent, 158)
     }
 }

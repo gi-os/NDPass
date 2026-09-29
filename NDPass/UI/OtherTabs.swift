@@ -66,53 +66,6 @@ struct CalendarView: View {
     }
 }
 
-struct MonthCount: Identifiable { let month: Int; let count: Int; var id: Int { month } }
-
-struct StatsView: View {
-    @Query private var passes: [Pass]
-
-    private func amount(_ s: String) -> Double { Double(s.filter { "0123456789.".contains($0) }) ?? 0 }
-
-    var body: some View {
-        let spent: Double = passes.reduce(0.0) { $0 + amount($1.price) }
-        let venues = Dictionary(grouping: passes.filter { !$0.venue.isEmpty }, by: \.venue).mapValues(\.count)
-        let fav = venues.max { $0.value < $1.value }
-        let year = Calendar.current.component(.year, from: Date())
-        let byMonth: [MonthCount] = (1...12).map { m in MonthCount(month: m, count: passes.filter { $0.date.hasPrefix(String(format: "%04d-%02d", year, m)) }.count) }
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    HStack(spacing: 14) {
-                        stat("\(passes.count)", "stubs")
-                        stat(String(format: "$%.0f", spent), "spent")
-                    }
-                    stat(fav?.key ?? "—", fav.map { "favorite venue · \($0.value) visits" } ?? "favorite venue")
-                    VStack(alignment: .leading) {
-                        Text("\(String(year)) by month").font(.headline)
-                        Chart(byMonth) { m in
-                            BarMark(x: .value("Month", Calendar.current.shortMonthSymbols[m.month - 1]), y: .value("Tickets", m.count))
-                                .foregroundStyle(Theme.cream)
-                        }
-                        .frame(height: 180)
-                    }
-                    .padding(16).glass()
-                }
-                .padding()
-            }
-            .background(Theme.bg)
-            .navigationTitle("Stats")
-        }
-    }
-
-    private func stat(_ v: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(v).font(.system(size: 28, weight: .heavy)).lineLimit(1).minimumScaleFactor(0.5)
-            Text(label).font(.caption).foregroundStyle(Theme.dim)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(16).glass()
-    }
-}
-
 struct SettingsView: View {
     @State private var anthropic = Keys.get(.anthropic) ?? ""
     @State private var tmdb = Keys.get(.tmdb) ?? ""
