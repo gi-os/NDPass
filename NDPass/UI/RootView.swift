@@ -34,15 +34,29 @@ struct RootView: View {
         return next.map { Calendar.current.isDateInToday($0.sortDate) } == true ? "Tonight" : "Up Next"
     }
     @State private var sharedAdded = 0
+    @State private var tab = 0
+    @State private var doorGroup: UUID?
     @Environment(\.scenePhase) private var phase
 
+    private func handle(_ url: URL) {
+        guard let link = CountdownLink(url) else { return }
+        let g = passes.filter { $0.group == link.group }.sorted { $0.seat < $1.seat }
+        guard let p = g.first else { return }
+        switch link.action {
+        case .ticket: tab = 0
+        case .door: tab = 0; doorGroup = link.group
+        case .seller: Seller.open(p)
+        case .directions: Maps.open(p.venue)
+        }
+    }
+
     var body: some View {
-        TabView {
-            Tab(firstTabTitle, systemImage: "ticket") { TonightView() }
-            Tab("Collection", systemImage: "square.grid.2x2") { CollectionView() }
-            Tab("Calendar", systemImage: "calendar") { CalendarView() }
-            Tab("Stats", systemImage: "chart.bar") { StatsView() }
-            Tab("Settings", systemImage: "gearshape") { SettingsView() }
+        TabView(selection: $tab) {
+            Tab(firstTabTitle, systemImage: "ticket", value: 0) { TonightView() }
+            Tab("Collection", systemImage: "square.grid.2x2", value: 1) { CollectionView() }
+            Tab("Calendar", systemImage: "calendar", value: 2) { CalendarView() }
+            Tab("Stats", systemImage: "chart.bar", value: 3) { StatsView() }
+            Tab("Settings", systemImage: "gearshape", value: 4) { SettingsView() }
         }
         .environmentObject(importer)
         .tint(Theme.accent)
@@ -61,7 +75,14 @@ struct RootView: View {
             try? ctx.save()
             UserDefaults.standard.set(Array(done), forKey: "logoChecked")
         }
-        .onChange(of: phase) { _, p in if p == .active { Task { await drainInbox() } } }
+        .onChange(of: phase) { _, p in
+            if p == .active { Task { await drainInbox(); await LiveCountdown.refresh(passes) } }
+        }
+        .onChange(of: passes.map { "\($0.group)\($0.date)\($0.time)" }) { _, _ in Task { await LiveCountdown.refresh(passes) } }
+        .onOpenURL { handle($0) }
+        .fullScreenCover(item: Binding(get: { doorGroup.map(DoorID.init) }, set: { doorGroup = $0?.id })) { d in
+            DoorView(passes: passes.filter { $0.group == d.id }.sorted { $0.seat < $1.seat })
+        }
         .alert(sharedAdded == 1 ? "Added a shared ticket" : "Added \(sharedAdded) shared tickets", isPresented: Binding(get: { sharedAdded > 0 }, set: { if !$0 { sharedAdded = 0 } })) {
             Button("OK") {}
         }
@@ -70,3 +91,5 @@ struct RootView: View {
         } message: { Text("Your keys came across too.") }
     }
 }
+
+private struct DoorID: Identifiable { let id: UUID }
