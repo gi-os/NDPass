@@ -23,7 +23,7 @@ private struct Backdrop: View {
         if let img = C.image(CountdownArt.backdrop(group)) {
             Image(uiImage: img).resizable().scaledToFill()
         } else {
-            LinearGradient(colors: [C.hex(0x3a1d10), C.bg], startPoint: .top, endPoint: .bottom)
+            StubGradient(seed: group)
         }
     }
 }
@@ -80,7 +80,7 @@ struct CountdownLiveActivity: Widget {
                         }
                         Spacer(minLength: 8)
                         Link(destination: link(a.seller != nil ? "seller" : "door", a)) {
-                            Text(a.seller.map { "Open \($0)" } ?? "Show ticket").font(C.sans(13, .semibold)).foregroundStyle(C.onAccent)
+                            Text(a.seller.map { "Open \($0)" } ?? "Open ticket").font(C.sans(13, .semibold)).foregroundStyle(C.onAccent)
                                 .padding(.horizontal, 14).frame(height: 34).background(C.accent, in: Capsule())
                         }
                     }
@@ -129,7 +129,7 @@ private struct CountdownCard: View {
                     }
                     Spacer(minLength: 6)
                     Link(destination: link(a.seller != nil ? "seller" : "door", a)) {
-                        Text(a.seller.map { "Open \($0)" } ?? "Show ticket").font(C.sans(13, .semibold)).foregroundStyle(C.onAccent)
+                        Text(a.seller.map { "Open \($0)" } ?? "Open ticket").font(C.sans(13, .semibold)).foregroundStyle(C.onAccent)
                             .padding(.horizontal, 14).frame(height: 32).background(C.accent, in: Capsule())
                     }
                     Link(destination: link("directions", a)) {
@@ -183,7 +183,7 @@ private struct DoorCard: View {
                         .padding(8).frame(width: 118, height: 118).background(C.paper, in: RoundedRectangle(cornerRadius: 14))
                 } else {
                     Link(destination: link("door", a)) {
-                        Text("Show ticket").font(C.sans(14, .semibold)).foregroundStyle(C.onAccent)
+                        Text("Open ticket").font(C.sans(14, .semibold)).foregroundStyle(C.onAccent)
                             .padding(.horizontal, 16).frame(height: 40).background(C.accent, in: Capsule())
                     }
                 }

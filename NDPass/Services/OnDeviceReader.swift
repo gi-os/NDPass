@@ -174,7 +174,7 @@ enum ReaderChoice: String, CaseIterable {
     case onDevice, claude
     var title: String { self == .onDevice ? "On this iPhone" : "Claude (your API key)" }
     static var current: ReaderChoice {
-        get { UserDefaults.standard.string(forKey: "reader").flatMap(ReaderChoice.init(rawValue:)) ?? .onDevice }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "reader") }
+        get { Store.defaults.string(forKey: "reader").flatMap(ReaderChoice.init(rawValue:)) ?? .onDevice }
+        set { Store.defaults.set(newValue.rawValue, forKey: "reader") }
     }
 }

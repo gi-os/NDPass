@@ -5,10 +5,10 @@ import SwiftUI
 /// once, before the first scan; changeable in Settings.
 enum AIConsent {
     private static let key = "aiConsent"
-    static var asked: Bool { UserDefaults.standard.object(forKey: key) != nil }
+    static var asked: Bool { Store.defaults.object(forKey: key) != nil }
     static var granted: Bool {
-        get { UserDefaults.standard.bool(forKey: key) }
-        set { UserDefaults.standard.set(newValue, forKey: key) }
+        get { Store.defaults.bool(forKey: key) }
+        set { Store.defaults.set(newValue, forKey: key) }
     }
 }
 

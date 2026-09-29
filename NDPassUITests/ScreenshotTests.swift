@@ -12,7 +12,7 @@ final class ScreenshotTests: XCTestCase {
         sleep(3)
         snapshot("01-Tonight")
 
-        let show = app.buttons["Show ticket"]
+        let show = app.buttons["Open ticket"]
         if show.waitForExistence(timeout: 5) {
             show.tap(); sleep(2)
             snapshot("02-Ticket")

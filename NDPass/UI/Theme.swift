@@ -140,13 +140,12 @@ struct CoverArt: View {
     }
 
     @ViewBuilder private var local: some View {
-        if let p = pass, let d = p.art ?? p.crop ?? p.photo, let img = UIImage(data: d) {
+        // Event art (a matchup card, a show poster) if we made one; otherwise a gradient.
+        // The photo of the ticket itself stays in the ticket view, not on the cover.
+        if let p = pass, let d = p.art, let img = UIImage(data: d) {
             Image(uiImage: img).resizable().scaledToFill()
         } else {
-            ZStack {
-                LinearGradient(colors: [Theme.hex(0x3a1d10), Theme.bg], startPoint: .top, endPoint: .bottom)
-                Circle().fill(Theme.accent.opacity(0.55)).frame(width: 160).offset(x: 60, y: -40).blur(radius: 2)
-            }
+            StubGradient(seed: pass?.group.uuidString ?? "ndpass")
         }
     }
 }

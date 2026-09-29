@@ -112,7 +112,7 @@ struct TonightView: View {
                     .accessibilityLabel("Ticket details")
                 } else {
                     NavigationLink(value: p.group) {
-                        Text("Show ticket").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
+                        Text("Open ticket").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
                             .frame(maxWidth: .infinity, minHeight: 50).background(Theme.accent, in: Capsule())
                     }
                 }
@@ -207,8 +207,8 @@ enum Maps {
     static var googleInstalled: Bool { UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!) }
 
     static var preferred: App {
-        get { UserDefaults.standard.string(forKey: "mapsApp").flatMap(App.init(rawValue:)) ?? (googleInstalled ? .google : .apple) }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "mapsApp") }
+        get { Store.defaults.string(forKey: "mapsApp").flatMap(App.init(rawValue:)) ?? (googleInstalled ? .google : .apple) }
+        set { Store.defaults.set(newValue.rawValue, forKey: "mapsApp") }
     }
 
     static func open(_ venue: String) {

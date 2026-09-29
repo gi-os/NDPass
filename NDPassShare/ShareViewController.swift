@@ -3,18 +3,22 @@ import SwiftUI
 import UniformTypeIdentifiers
 import PDFKit
 import UserNotifications
+import SwiftData
 
 /// "Share to NDPass" from Photos, Safari, Mail, Files or any app: screenshots, photos, PDFs,
-/// links, text and emails. The item is handed to the app, which reads it on-device the next
-/// time it opens; a notification takes you there.
+/// links, text and emails. The sheet reads the ticket right here, on this iPhone, shows it
+/// with its fields to fix, and Add files it into NDPass. No need to open the app.
 final class ShareViewController: UIViewController {
     private let model = ShareModel()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let host = UIHostingController(rootView: ShareCard(model: model) { [weak self] in
+        let host = UIHostingController(rootView: ShareCard(model: model, add: { [weak self] in
+            self?.model.save()
             self?.extensionContext?.completeRequest(returningItems: nil)
-        })
+        }, cancel: { [weak self] in
+            self?.extensionContext?.completeRequest(returningItems: nil)
+        }))
         addChild(host)
         host.view.frame = view.bounds
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -25,22 +29,20 @@ final class ShareViewController: UIViewController {
 
     private func collect() async {
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
-        var saved = 0
+        var images: [(UIImage, String?)] = []
         var text: [String] = []
         var link: String?
         for p in providers {
-            if p.hasItemConformingToTypeIdentifier(UTType.image.identifier), let data = await loadData(p, UTType.image) {
-                let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.9) ?? data
-                if (try? Inbox.write(InboxItem(url: link, hasImage: true), image: jpeg)) != nil { saved += 1 }
+            if p.hasItemConformingToTypeIdentifier(UTType.image.identifier), let data = await loadData(p, UTType.image), let img = UIImage(data: data) {
+                images.append((img, nil))
             } else if p.hasItemConformingToTypeIdentifier(UTType.pdf.identifier), let data = await loadData(p, UTType.pdf),
                       let doc = PDFDocument(data: data) {
                 let pdfText = (0..<min(doc.pageCount, 3)).compactMap { doc.page(at: $0)?.string }.joined(separator: "\n")
-                let img = doc.page(at: 0).map { page -> Data? in
+                if let page = doc.page(at: 0) {
                     let r = page.bounds(for: .mediaBox)
                     let scale = 1600 / max(r.width, r.height)
-                    return page.thumbnail(of: CGSize(width: r.width * scale, height: r.height * scale), for: .mediaBox).jpegData(compressionQuality: 0.9)
-                } ?? nil
-                if (try? Inbox.write(InboxItem(text: pdfText, url: link, hasImage: img != nil), image: img)) != nil { saved += 1 }
+                    images.append((page.thumbnail(of: CGSize(width: r.width * scale, height: r.height * scale), for: .mediaBox), pdfText))
+                } else { text.append(pdfText) }
             } else if p.hasItemConformingToTypeIdentifier(UTType.url.identifier), let u = await loadURL(p) {
                 if u.isFileURL, let d = try? Data(contentsOf: u), let s = String(data: d, encoding: .utf8) { text.append(Self.stripEmail(s)) }
                 else { link = u.absoluteString }
@@ -51,19 +53,7 @@ final class ShareViewController: UIViewController {
                 text.append(s)
             }
         }
-        // A link or text with no picture becomes one item the app reads as text.
-        if saved == 0, link != nil || !text.isEmpty {
-            if (try? Inbox.write(InboxItem(text: text.joined(separator: "\n"), url: link), image: nil)) != nil { saved += 1 }
-        }
-        if saved > 0 { await notify(saved) }
-        await MainActor.run { model.state = saved > 0 ? .saved(saved) : .nothing }
-    }
-
-    private func notify(_ n: Int) async {
-        let c = UNMutableNotificationContent()
-        c.title = n == 1 ? "Ticket ready in NDPass" : "\(n) tickets ready in NDPass"
-        c.body = "Tap to read and file it."
-        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "share-\(UUID())", content: c, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)))
+        await model.read(images: images, text: text.joined(separator: "\n"), link: link)
     }
 
     private func loadData(_ p: NSItemProvider, _ type: UTType) async -> Data? {
@@ -100,39 +90,120 @@ final class ShareViewController: UIViewController {
     }
 }
 
+@MainActor
 final class ShareModel: ObservableObject {
-    enum State: Equatable { case working, saved(Int), nothing }
-    @Published var state: State = .working
+    enum State { case reading, ready, nothing }
+    @Published var state: State = .reading
+    @Published var passes: [Pass] = []
+    @Published var status = "Reading the ticket…"
+    private let importer = Importer()
+    private lazy var container = Store.container()
+
+    func read(images: [(UIImage, String?)], text: String, link: String?) async {
+        var out: [Pass] = []
+        for (i, (img, extra)) in images.prefix(5).enumerated() {
+            status = images.count > 1 ? "Reading ticket \(i + 1) of \(min(images.count, 5))…" : "Reading the ticket…"
+            if let p = await importer.make(img, sourceURL: link, prefetchedText: extra) { out.append(p) }
+        }
+        if images.isEmpty, link != nil || !text.isEmpty {
+            status = link != nil && text.isEmpty ? "Opening the link…" : "Reading the ticket…"
+            if let p = await importer.make(text: text, image: nil, sourceURL: link) { out.append(p) }
+        }
+        passes = out
+        state = out.isEmpty ? .nothing : .ready
+    }
+
+    func save() {
+        let ctx = container.mainContext
+        for p in passes { importer.file(p, into: ctx) }
+        Store.touch()
+    }
 }
 
 struct ShareCard: View {
     @ObservedObject var model: ShareModel
-    var done: () -> Void
+    var add: () -> Void
+    var cancel: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            switch model.state {
-            case .working:
-                ProgressView().tint(Color(red: 0.94, green: 0.54, blue: 0.24))
-                Text("Adding to NDPass…").font(.headline)
-            case .saved(let n):
-                Image(systemName: "ticket").font(.system(size: 44)).foregroundStyle(Color(red: 0.94, green: 0.54, blue: 0.24))
-                Text(n == 1 ? "Sent to NDPass" : "\(n) sent to NDPass").font(.title2.bold())
-                Text("Open NDPass and it reads and files it for you.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            case .nothing:
-                Text("Nothing NDPass can read here.").font(.headline)
-                Text("Share a screenshot, photo, PDF, link or email of a ticket.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+        NavigationStack {
+            Group {
+                switch model.state {
+                case .reading:
+                    VStack(spacing: 14) {
+                        ProgressView().tint(Theme.accent).controlSize(.large)
+                        Text(model.status).font(Theme.sans(16, .medium)).foregroundStyle(Theme.muted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .nothing:
+                    VStack(spacing: 8) {
+                        Image(systemName: "ticket").font(.system(size: 40)).foregroundStyle(Theme.accent)
+                        Text("No ticket found").font(Theme.serif(30)).foregroundStyle(Theme.ink)
+                        Text("Share a screenshot, photo, PDF, link or email of a ticket.")
+                            .font(Theme.sans(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                    }
+                    .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .ready:
+                    ScrollView {
+                        VStack(spacing: 22) {
+                            ForEach(model.passes, id: \.id) { p in ShareTicket(pass: p) }
+                        }
+                        .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 110)
+                    }
+                    .safeAreaInset(edge: .bottom) {
+                        Button(action: add) {
+                            Text(model.passes.count > 1 ? "Add \(model.passes.count) tickets" : "Add to NDPass")
+                                .font(Theme.sans(17, .semibold)).foregroundStyle(Theme.onAccent)
+                                .frame(maxWidth: .infinity, minHeight: 54).background(Theme.accent, in: Capsule())
+                        }
+                        .padding(.horizontal, 18).padding(.bottom, 10)
+                    }
+                }
             }
-            Spacer()
-            Button(action: done) {
-                Text("Done").font(.headline).foregroundStyle(Color(red: 0.11, green: 0.05, blue: 0.02))
-                    .frame(maxWidth: .infinity, minHeight: 50).background(Color(red: 0.94, green: 0.54, blue: 0.24), in: Capsule())
+            .background(Theme.bg.ignoresSafeArea())
+            .navigationTitle("Add ticket")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: cancel).tint(Theme.ink) }
+                if model.state == .ready {
+                    ToolbarItem(placement: .confirmationAction) { Button("Add", action: add).tint(Theme.accent).fontWeight(.semibold) }
+                }
             }
         }
-        .padding(28)
-        .foregroundStyle(Color(red: 0.96, green: 0.91, blue: 0.85))
-        .background(Color(red: 0.08, green: 0.04, blue: 0.02).ignoresSafeArea())
         .preferredColorScheme(.dark)
+    }
+}
+
+/// One read ticket: the cover it'll get in NDPass, then its fields to check and fix.
+struct ShareTicket: View {
+    @Bindable var pass: Pass
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TicketArt(pass: pass, logoHeight: 56).frame(height: 170)
+            VStack(spacing: 0) {
+                field("Title", $pass.title)
+                field("Venue", $pass.venue)
+                HStack(spacing: 0) {
+                    field("Date", $pass.date, placeholder: "yyyy-mm-dd")
+                    field("Time", $pass.time, placeholder: "7:30 PM")
+                }
+                field("Seat", $pass.seat, mono: true)
+            }
+            .padding(.vertical, 6)
+            .background(Theme.surface)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func field(_ label: String, _ text: Binding<String>, placeholder: String = "", mono: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label.uppercased()).font(Theme.sans(10, .medium)).tracking(1).foregroundStyle(Theme.muted)
+            TextField(placeholder, text: text)
+                .font(mono ? Theme.mono(16) : Theme.sans(16)).foregroundStyle(Theme.ink)
+                .textInputAutocapitalization(.words).autocorrectionDisabled(mono)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

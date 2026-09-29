@@ -51,7 +51,7 @@ enum LiveCountdown {
         let p = g[0]
         var backdrop: UIImage?
         if let u = p.backdropURL, let (d, _) = try? await URLSession.shared.data(from: u) { backdrop = UIImage(data: d) }
-        if backdrop == nil, let d = p.art ?? p.crop ?? p.photo { backdrop = UIImage(data: d) }
+        if backdrop == nil, let d = p.art { backdrop = UIImage(data: d) }
         if let b = backdrop.flatMap({ shrink($0, width: 700) }), let d = b.jpegData(compressionQuality: 0.72), let u = CountdownArt.backdrop(key) { try? d.write(to: u) }
         if let lu = p.logoURL, let (d, _) = try? await URLSession.shared.data(from: lu), let img = UIImage(data: d),
            let png = shrink(img, width: 360).pngData(), let u = CountdownArt.logo(key) {

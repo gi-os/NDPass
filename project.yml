@@ -25,6 +25,7 @@ targets:
       path: NDPass/NDPass.entitlements
       properties:
         com.apple.security.application-groups: [group.com.gios.ndpass]
+        keychain-access-groups: ["$(AppIdentifierPrefix)com.gios.ndpass"]
     info:
       path: NDPass/Info.plist
       properties:
@@ -60,16 +61,27 @@ targets:
       - path: NDPassShare
       - path: Shared
         excludes: [Countdown.swift]
+      - path: NDPass/Model
+      - path: NDPass/Logic
+      - path: NDPass/Services
+        excludes: [LiveCountdown.swift, ExpoImport.swift]
+      - path: NDPass/UI/Theme.swift
+      - path: NDPass/Resources/Geist.ttf
+      - path: NDPass/Resources/GeistMono.ttf
+      - path: NDPass/Resources/InstrumentSerif-Regular.ttf
+      - path: NDPass/Resources/InstrumentSerif-Italic.ttf
     entitlements:
       path: NDPassShare/NDPassShare.entitlements
       properties:
         com.apple.security.application-groups: [group.com.gios.ndpass]
+        keychain-access-groups: ["$(AppIdentifierPrefix)com.gios.ndpass"]
     info:
       path: NDPassShare/Info.plist
       properties:
         CFBundleDisplayName: NDPass
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIAppFonts: [InstrumentSerif-Regular.ttf, InstrumentSerif-Italic.ttf, Geist.ttf, GeistMono.ttf]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -84,6 +96,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.NDPassShare
         GENERATE_INFOPLIST_FILE: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NDPASS_EXTENSION"
         SKIP_INSTALL: YES
   NDPassWidgets:
     type: app-extension
@@ -91,6 +104,7 @@ targets:
     sources:
       - path: NDPassWidgets
       - path: Shared/Countdown.swift
+      - path: Shared/StubGradient.swift
       - path: NDPass/Resources/Geist.ttf
       - path: NDPass/Resources/GeistMono.ttf
       - path: NDPass/Resources/InstrumentSerif-Regular.ttf

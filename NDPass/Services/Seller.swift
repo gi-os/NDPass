@@ -96,6 +96,7 @@ enum Seller: String, CaseIterable, Codable {
     }
 
     /// Open the order itself if we have its link from this seller, else your tickets there.
+    #if !NDPASS_EXTENSION
     static func open(_ p: Pass) {
         guard let s = p.seller else { return }
         if let src = p.sourceURL, let u = URL(string: src), let h = u.host?.lowercased(), s.hosts.contains(where: { h.hasSuffix($0) }) {
@@ -103,4 +104,5 @@ enum Seller: String, CaseIterable, Codable {
         }
         UIApplication.shared.open(s.ticketsURL)
     }
+    #endif
 }

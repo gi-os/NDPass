@@ -10,6 +10,13 @@ final class Importer: ObservableObject {
     @Published var lastError: String?
 
     func add(_ image: UIImage, sourceURL: String? = nil, prefetchedText: String? = nil, into ctx: ModelContext) async -> Pass? {
+        guard let p = await make(image, sourceURL: sourceURL, prefetchedText: prefetchedText) else { return nil }
+        file(p, into: ctx)
+        return p
+    }
+
+    /// Read a ticket into a Pass that isn't saved yet (the share sheet shows it first).
+    func make(_ image: UIImage, sourceURL: String? = nil, prefetchedText: String? = nil) async -> Pass? {
         busy = true
         log = []
         lastError = nil
@@ -57,21 +64,29 @@ final class Importer: ObservableObject {
         } else { step("No readable code in the photo.") }
 
         await decorate(p)
+        return p
+    }
 
-        // Same showing as a ticket already saved? Keep them together.
+    /// Save a read ticket, next to any other ticket for the same showing.
+    func file(_ p: Pass, into ctx: ModelContext) {
         let all = (try? ctx.fetch(FetchDescriptor<Pass>())) ?? []
         if let twin = all.first(where: { $0.sameShowing(as: p) }) { p.group = twin.group; step("Grouped with your other ticket.") }
         ctx.insert(p)
         try? ctx.save()
         Reminders.schedule(p)
         step("Saved.")
-        return p
     }
 
     /// A ticket from text: a shared email, a link's page, a PDF's words. Read on-device
     /// (or by Claude if that's on), with the image if there is one.
     func add(text: String, image: UIImage?, sourceURL: String?, into ctx: ModelContext) async -> Pass? {
-        if let image { return await add(image, sourceURL: sourceURL, prefetchedText: text, into: ctx) }
+        guard let p = await make(text: text, image: image, sourceURL: sourceURL) else { return nil }
+        file(p, into: ctx)
+        return p
+    }
+
+    func make(text: String, image: UIImage?, sourceURL: String?) async -> Pass? {
+        if let image { return await make(image, sourceURL: sourceURL, prefetchedText: text) }
         busy = true; log = []; lastError = nil
         defer { busy = false }
         var body = text
@@ -90,11 +105,6 @@ final class Importer: ObservableObject {
         p.seller = parsed.seller
         step("\(parsed.title) · \(PassTimes.humanDate(parsed.date) ?? "no date")")
         await decorate(p)
-        let all = (try? ctx.fetch(FetchDescriptor<Pass>())) ?? []
-        if let twin = all.first(where: { $0.sameShowing(as: p) }) { p.group = twin.group }
-        ctx.insert(p); try? ctx.save()
-        Reminders.schedule(p)
-        step("Saved.")
         return p
     }
 
