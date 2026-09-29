@@ -242,11 +242,11 @@ struct TitleMark: View {
         Group {
             if let u = pass.logoURL {
                 AsyncImage(url: u) { img in
-                    img.resizable().scaledToFit()
+                    img.resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: maxHeight, alignment: alignment)
                 } placeholder: { fallback }
             } else { fallback }
         }
-        .frame(maxHeight: maxHeight, alignment: alignment)
+        .frame(maxWidth: .infinity, maxHeight: maxHeight, alignment: alignment)
         .shadow(color: .black.opacity(0.65), radius: 10, y: 2)
         .accessibilityLabel(pass.title)
     }

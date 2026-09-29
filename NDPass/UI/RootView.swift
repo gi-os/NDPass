@@ -5,10 +5,17 @@ struct RootView: View {
     @StateObject private var importer = Importer()
     @Environment(\.modelContext) private var ctx
     @State private var imported = 0
+    @Query private var passes: [Pass]
+
+    /// "Tonight" when something is on today; "Up Next" when the next one is later.
+    private var firstTabTitle: String {
+        let next = passes.filter { !$0.isArchived }.min { $0.sortDate < $1.sortDate }
+        return next.map { Calendar.current.isDateInToday($0.sortDate) } == true ? "Tonight" : "Up Next"
+    }
 
     var body: some View {
         TabView {
-            Tab("Tonight", systemImage: "ticket") { TonightView() }
+            Tab(firstTabTitle, systemImage: "ticket") { TonightView() }
             Tab("Collection", systemImage: "square.grid.2x2") { CollectionView() }
             Tab("Calendar", systemImage: "calendar") { CalendarView() }
             Tab("Stats", systemImage: "chart.bar") { StatsView() }
