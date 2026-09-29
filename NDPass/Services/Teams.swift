@@ -92,7 +92,7 @@ enum Teams {
             c.queryItems = [URLQueryItem(name: "l", value: l)]
             if let u = c.url { all += await teams(at: u, fallbackName: l).map { var t = $0; t.female = true; return t } }
         }
-        rosters = all
+        if !all.isEmpty { rosters = all }   // a refused request isn't a real empty roster
         return all
     }
 
@@ -103,8 +103,30 @@ enum Teams {
         return await teams(at: u, fallbackName: q)
     }
 
+    /// One request at a time, spaced to stay under TheSportsDB's limit: the free "123" key
+    /// allows 30 a minute, paid keys 100. A 429 waits and tries once more.
+    private actor Gate {
+        var next = Date.distantPast
+        func fetch(_ u: URL, spacing: TimeInterval) async -> Data? {
+            for attempt in 0..<2 {
+                let wait = next.timeIntervalSinceNow
+                if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
+                next = Date().addingTimeInterval(spacing)
+                guard let (d, r) = try? await URLSession.shared.data(from: u) else { return nil }
+                if (r as? HTTPURLResponse)?.statusCode == 429 {
+                    next = Date().addingTimeInterval(attempt == 0 ? 20 : 60)
+                    continue
+                }
+                return d
+            }
+            return nil
+        }
+    }
+    private static let gate = Gate()
+
     private static func teams(at u: URL, fallbackName q: String) async -> [Team] {
-        guard let (d, _) = try? await URLSession.shared.data(from: u),
+        let free = u.absoluteString.contains("/json/123/") || u.absoluteString.contains("/json/3/")
+        guard let d = await gate.fetch(u, spacing: free ? 2.2 : 0.7),
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
               let teams = j["teams"] as? [[String: Any]] else { return [] }
         return teams.map { t in

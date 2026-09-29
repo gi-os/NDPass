@@ -133,7 +133,7 @@ struct SettingsView: View {
                 } header: { Text("TMDb key (optional)") } footer: { Text("Posters and film search.") }
                 Section {
                     SecureField("TheSportsDB API key", text: $sportsdb).autocorrectionDisabled().textInputAutocapitalization(.never)
-                } header: { Text("TheSportsDB key (optional)") } footer: { Text("Games already get their team colors without a key. A key adds team crests.") }
+                } header: { Text("TheSportsDB key (optional)") } footer: { Text("Games get their team colors without a key. A key adds team crests: 123 is TheSportsDB's free key (slower, fewer teams); a paid key from thesportsdb.com is faster.") }
                 Section {
                     Picker("Directions in", selection: $maps) {
                         ForEach(Maps.App.allCases, id: \.self) { Text($0.title).tag($0) }
