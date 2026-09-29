@@ -11,6 +11,15 @@ enum PassTimes {
     /// "1:30 AM" on a movie ticket is a misread "1:30 PM": nothing starts 1-6 AM.
     static func normalizeTime(_ time: String?) -> String? {
         guard let t = time?.trimmingCharacters(in: .whitespaces), !t.isEmpty else { return time }
+        // 24-hour ("19:30", "19h30", "1930") → "7:30 PM". Always shown with AM/PM.
+        if let m = t.wholeMatch(of: #/(\d{1,2})\s*[:h.]?\s*(\d{2})/#), let h = Int(m.1), let mm = Int(m.2), h < 24, mm < 60 {
+            let hour = h % 12 == 0 ? 12 : h % 12
+            var mer = h >= 12 ? "PM" : "AM"
+            // Without AM/PM a single-digit hour on a ticket is evening ("7:30"); nothing
+            // starts 1-9 AM. 10 and 11 stay morning (matinees).
+            if mer == "AM" && (1...9).contains(h) { mer = "PM" }
+            return String(format: "%d:%02d %@", hour, mm, mer)
+        }
         guard let m = t.wholeMatch(of: #/(?i)(\d{1,2}):(\d{2})\s*([ap])\.?m\.?/#) else { return time }
         let hour = Int(m.1) ?? 0
         var mer = m.3.uppercased()

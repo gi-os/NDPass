@@ -67,6 +67,15 @@ struct RootView: View {
             imported = ExpoImport.runIfNeeded(ctx)
         }
         .task {
+            // Times saved as 24-hour get AM/PM, once.
+            guard !Demo.active, !Store.defaults.bool(forKey: "ampm") else { return }
+            for p in (try? ctx.fetch(FetchDescriptor<Pass>())) ?? [] {
+                if let t = PassTimes.normalizeTime(p.time), t != p.time { p.time = t }
+            }
+            try? ctx.save()
+            Store.defaults.set(true, forKey: "ampm")
+        }
+        .task {
             // Every game and concert drawn again with the current design, once (art3: women's
             // rosters and crest colors), and again after a TheSportsDB key is added.
             guard !Demo.active else { return }

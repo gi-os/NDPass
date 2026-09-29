@@ -44,7 +44,7 @@ final class Importer: ObservableObject {
         p.kind = parsed.kind
         p.venue = parsed.venue
         p.date = parsed.date
-        p.time = parsed.time
+        p.time = PassTimes.normalizeTime(parsed.time) ?? parsed.time
         p.seat = parsed.seat
         p.price = parsed.price
         p.bookingCode = parsed.code
@@ -99,7 +99,7 @@ final class Importer: ObservableObject {
         if parsed.notATicket || parsed.title == "Untitled" && parsed.date.isEmpty { lastError = "Couldn't find a ticket in that."; step("No ticket found."); return nil }
         parsed.seller = Seller.detect(text: body, url: sourceURL)
         let p = Pass(title: EventTitle.clean(parsed.title, kind: parsed.kind))
-        p.kind = parsed.kind; p.venue = parsed.venue; p.date = parsed.date; p.time = parsed.time
+        p.kind = parsed.kind; p.venue = parsed.venue; p.date = parsed.date; p.time = PassTimes.normalizeTime(parsed.time) ?? parsed.time
         p.seat = parsed.seat; p.price = parsed.price; p.bookingCode = parsed.code; p.confidence = parsed.confidence
         p.sourceURL = sourceURL
         p.seller = parsed.seller

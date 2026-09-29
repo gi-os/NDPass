@@ -372,6 +372,7 @@ struct TimeField: View {
             Spacer()
             if WhenFormat.time(text) != nil {
                 DatePicker(label, selection: bound, displayedComponents: .hourAndMinute).labelsHidden()
+                    .environment(\.locale, Locale(identifier: "en_US"))   // AM/PM even on a 24-hour phone
             } else {
                 Button(text.isEmpty ? "Add time" : "Fix “\(text)”") { text = "7:30 PM" }.tint(Theme.accent)
             }
