@@ -2,7 +2,8 @@ import UIKit
 
 /// Team crests and colors from TheSportsDB, with your own key (Settings). Works for women's
 /// leagues too: WNBA, NWSL, PWHL, AUSL, LOVB, Athletes Unlimited and the rest.
-struct Team {
+struct Team: Identifiable {
+    var id: String { name + "|" + league }
     var name: String
     var league: String
     var female: Bool
@@ -60,6 +61,15 @@ enum Teams {
             out += await query(String(last), key: key)
         }
         return out.filter { fit(name, $0.name) > 0 }.sorted { fit(name, $0.name) > fit(name, $1.name) }
+    }
+
+    /// Every team TheSportsDB has for a name, for picking by hand.
+    static func lookup(_ q: String, key: String) async -> [Team] {
+        let cleaned = expand(q).trimmingCharacters(in: .whitespaces)
+        var out = await query(cleaned, key: key)
+        if out.isEmpty, let last = cleaned.split(separator: " ").last, last.count > 3 { out = await query(String(last), key: key) }
+        let roster = await womensRoster(key: key).filter { fit(q, $0.name) >= 5 }
+        return roster + out.filter { t in !roster.contains { $0.name == t.name } }
     }
 
     /// Women's leagues in the US and Canada, whole rosters, so a ticket's short name finds

@@ -13,6 +13,18 @@ enum EventArt {
         else if p.title == p.title.lowercased(), let t = PassTimes.titleCase(p.title) { p.title = t }
     }
 
+    /// Draw a game from two teams picked by hand.
+    static func game(_ a: Team, _ b: Team) async -> Data? {
+        async let ia = Teams.badge(a)
+        async let ib = Teams.badge(b)
+        let (ba, bb) = await (ia, ib)
+        func colors(_ t: Team, _ img: UIImage?) -> [UIColor] {
+            if !t.colors.isEmpty { return t.colors }
+            return img.flatMap(Teams.mainColor).map { [$0] } ?? []
+        }
+        return split(home: (a.name, ba, colors(a, ba)), away: (b.name, bb, colors(b, bb)), seed: a.name + b.name).jpegData(compressionQuality: 0.9)
+    }
+
     static func art(for kind: EventKind, title: String, context: String = "") async -> Data? {
         await artAndName(for: kind, title: title, context: context).0
     }

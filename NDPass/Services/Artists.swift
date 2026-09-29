@@ -69,6 +69,27 @@ enum Artists {
         return await cover(for: title)
     }
 
+    struct Hit: Identifiable {
+        var id: Int
+        var name: String
+        var fans: Int
+        var thumb: URL?
+        var photo: URL?
+    }
+
+    /// Deezer artists for a name, most followed first, for picking by hand.
+    static func search(_ q: String) async -> [Hit] {
+        guard !q.isEmpty, var c = URLComponents(string: "https://api.deezer.com/search/artist") else { return [] }
+        c.queryItems = [URLQueryItem(name: "q", value: q), URLQueryItem(name: "limit", value: "20")]
+        guard let u = c.url, let (d, _) = try? await URLSession.shared.data(from: u),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let list = j["data"] as? [[String: Any]] else { return [] }
+        return list.compactMap { a in
+            guard let pic = a["picture_xl"] as? String, !pic.contains("/artist//") else { return nil }
+            return Hit(id: a["id"] as? Int ?? 0, name: a["name"] as? String ?? q, fans: a["nb_fan"] as? Int ?? 0,
+                       thumb: (a["picture_medium"] as? String).flatMap(URL.init(string:)), photo: URL(string: pic))
+        }
+    }
+
     /// The cover sharp in the middle of itself, blurred and darkened, square.
     static func card(_ cover: UIImage) -> UIImage {
         let size = CGSize(width: 1000, height: 1000)

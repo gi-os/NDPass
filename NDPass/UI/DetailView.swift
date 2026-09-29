@@ -13,6 +13,8 @@ struct DetailView: View {
     @State private var door = false
     @State private var countdown = false
     @State private var picking = false
+    @State private var pickingTeams = false
+    @State private var pickingArtist = false
     @State private var merging = false
     @State private var confirmDelete = false
 
@@ -52,7 +54,12 @@ struct DetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     if let p = passes.first { Button { editing = p } label: { Label("Edit", systemImage: "pencil") } }
-                    if passes.first?.kind == .movie { Button { picking = true } label: { Label("Pick the film", systemImage: "film") } }
+                    switch passes.first?.kind {
+                    case .movie: Button { picking = true } label: { Label("Pick the film", systemImage: "film") }
+                    case .sports: Button { pickingTeams = true } label: { Label("Pick the teams", systemImage: "sportscourt") }
+                    case .concert: Button { pickingArtist = true } label: { Label("Pick the artist", systemImage: "music.mic") }
+                    case nil: EmptyView()
+                    }
                     Button { merging = true } label: { Label("Merge with another ticket", systemImage: "rectangle.stack.badge.plus") }
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete", systemImage: "trash") }
                 } label: { Image(systemName: "ellipsis") }
@@ -64,6 +71,8 @@ struct DetailView: View {
         .fullScreenCover(isPresented: $door) { DoorView(passes: passes) }
         .fullScreenCover(isPresented: $countdown) { CountdownView(passes: passes) }
         .sheet(isPresented: $picking) { if let p = passes.first { MoviePicker(passes: passes, query: p.title).environmentObject(importer) } }
+        .sheet(isPresented: $pickingTeams) { TeamPicker(passes: passes) }
+        .sheet(isPresented: $pickingArtist) { if let p = passes.first { ArtistPicker(passes: passes, query: p.title) } }
         .sheet(isPresented: $merging) { MergePicker(into: passes) }
         .confirmationDialog("Delete \(passes.count == 1 ? "this ticket" : "these \(passes.count) tickets")?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
