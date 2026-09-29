@@ -145,6 +145,8 @@ final class Importer: ObservableObject {
     }
 
     private func step(_ s: String) { log.append(s) }
+    /// A line after a batch, kept on screen with the last ticket's steps.
+    func note(_ s: String) { log.append(s) }
 
     static func upright(_ img: UIImage) -> UIImage {
         guard img.imageOrientation != .up else { return img }

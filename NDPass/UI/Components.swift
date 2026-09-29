@@ -20,7 +20,7 @@ struct ScanMenu<Label: View>: View {
     @ViewBuilder var label: () -> Label
     @Environment(\.modelContext) private var ctx
     @EnvironmentObject private var importer: Importer
-    @State private var item: PhotosPickerItem?
+    @State private var items: [PhotosPickerItem] = []
     @State private var photos = false
     @State private var camera = false
     @State private var log = false
@@ -32,12 +32,17 @@ struct ScanMenu<Label: View>: View {
             Button { ask { camera = true } } label: { SwiftUI.Label("Photograph a stub", systemImage: "camera") }
             Button { ask { photos = true } } label: { SwiftUI.Label("Pick a photo or screenshot", systemImage: "photo") }
         } label: { label() }
-        .photosPicker(isPresented: $photos, selection: $item, matching: .images)
-        .onChange(of: item) { _, it in
-            guard let it else { return }
+        // Pick as many as you like; each is read and filed in turn.
+        .photosPicker(isPresented: $photos, selection: $items, maxSelectionCount: 20, selectionBehavior: .ordered, matching: .images)
+        .onChange(of: items) { _, picked in
+            guard !picked.isEmpty else { return }
             Task {
-                if let d = try? await it.loadTransferable(type: Data.self), let img = UIImage(data: d) { await run(img) }
-                item = nil
+                var images: [UIImage] = []
+                for it in picked {
+                    if let d = try? await it.loadTransferable(type: Data.self), let img = UIImage(data: d) { images.append(img) }
+                }
+                items = []
+                await runAll(images)
             }
         }
         .fullScreenCover(isPresented: $camera) {
@@ -58,6 +63,21 @@ struct ScanMenu<Label: View>: View {
     private func ask(_ then: @escaping () -> Void) {
         // Only Claude sends anything off the phone, so only Claude needs asking.
         if ReaderChoice.current == .onDevice || AIConsent.asked { then() } else { next = then; consent = true }
+    }
+
+    private func runAll(_ images: [UIImage]) async {
+        guard images.count > 1 else { if let img = images.first { await run(img) }; return }
+        log = true
+        var last: Pass?
+        var added = 0
+        for (i, img) in images.enumerated() {
+            if let p = await importer.add(img, into: ctx) { last = p; added += 1 }
+            _ = i
+        }
+        if let last { onAdded(last) }
+        importer.note("Added \(added) of \(images.count) tickets.")
+        try? await Task.sleep(nanoseconds: 1_200_000_000)
+        if added == images.count { log = false }
     }
 
     private func run(_ img: UIImage) async {
