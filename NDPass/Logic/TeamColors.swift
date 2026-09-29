@@ -210,6 +210,21 @@ enum TeamColors {
         .init("Washington Wizards", "NBA", false, [0x002B5C, 0xE31837]),
     ]
 
+    /// A team we have no colors for: two from a sporty palette, the same every time for the
+    /// same name. Shown under the ticket's own name, never passed off as the real colors.
+    static func fallback(_ name: String) -> Team {
+        let palette: [UInt32] = [0x0B3D91, 0xC8102E, 0x006847, 0x4B2E83, 0xF47A20, 0x00778B, 0x862633, 0x1D428A,
+                                 0xFDB927, 0x2E7D32, 0x003087, 0xE31837, 0x5A2D82, 0x00A3E0, 0x7A1F3D, 0x263238]
+        var h: UInt64 = 0xcbf29ce484222325
+        for b in name.lowercased().utf8 { h ^= UInt64(b); h = h &* 0x100000001b3 }
+        let i = Int(h % 16)
+        var j = Int((h >> 8) % 16)
+        if j == i { j = (i + 5) % 16 }
+        let a = palette[i], b = palette[j]
+        let e = Entry(name, "", false, [a, b])
+        return e.team
+    }
+
     /// Teams whose names fit what the ticket says, best first.
     static func find(_ name: String) -> [Entry] {
         all.map { ($0, Teams.fit(name, $0.name)) }.filter { $0.1 >= 5 }.sorted { $0.1 > $1.1 }.map(\.0)

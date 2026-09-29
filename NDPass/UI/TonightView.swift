@@ -39,7 +39,12 @@ struct TonightView: View {
 
     private func hero(_ g: [Pass]?) -> some View {
         ZStack(alignment: .top) {
+            // Pulling down past the top zooms the art to fill instead of showing black above it.
             CoverArt(pass: g?.first, preferBackdrop: g?.first?.backdropPath != nil).frame(height: 560).frame(maxWidth: .infinity)
+                .visualEffect { content, proxy in
+                    let pull = max(0, proxy.frame(in: .scrollView(axis: .vertical)).minY)
+                    return content.scaleEffect(1 + pull / 560, anchor: .bottom)
+                }
             LinearGradient(stops: [.init(color: Theme.bg.opacity(0.35), location: 0), .init(color: .clear, location: 0.25),
                                    .init(color: Theme.bg.opacity(0.85), location: 0.78), .init(color: Theme.bg, location: 1)],
                            startPoint: .top, endPoint: .bottom)
@@ -65,8 +70,8 @@ struct TonightView: View {
             Text("NDPass").font(Theme.serif(36)).foregroundStyle(Theme.ink)
             Spacer()
             ScanMenu(onAdded: { p in if !p.isArchived { path = [p.group] } }) {
-                Image(systemName: "plus").font(.system(size: 19, weight: .semibold)).foregroundStyle(Theme.onAccent)
-                    .frame(width: 46, height: 46).background(Theme.accent, in: Circle())
+                Image(systemName: "plus").font(.system(size: 19, weight: .semibold)).foregroundStyle(Theme.ink)
+                    .frame(width: 46, height: 46).glass(in: Circle(), interactive: true)
             }
             .accessibilityLabel("Scan a ticket")
         }
@@ -170,8 +175,8 @@ struct TonightView: View {
                             Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
                             Spacer()
                             ScanMenu(onAdded: { p in selected = p.group }) {
-                                Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.onAccent)
-                                    .padding(.horizontal, 18).frame(height: 46).background(Theme.accent, in: Capsule())
+                                Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
+                                    .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
                             }
                         }
                         if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }

@@ -144,9 +144,12 @@ struct StubThumb: View {
     var body: some View {
         let p = passes[0]
         VStack(alignment: .leading, spacing: 6) {
+            // Scaled-to-fill art spills past its frame; clipped when drawn but not for touches,
+            // so it covered the tickets next to it. The art takes no touches; the card does.
             TicketArt(pass: p, logoHeight: height * 0.3)
                 .frame(height: height)
                 .clipShape(StubShape(corner: 16, notch: 8, at: 0.62))
+                .allowsHitTesting(false)
                 .overlay(alignment: .topTrailing) {
                     if passes.count > 1 {
                         Text("×\(passes.count)").font(Theme.mono(12, .medium)).padding(.horizontal, 8).padding(.vertical, 4)
@@ -156,6 +159,7 @@ struct StubThumb: View {
             Text(p.title).font(Theme.sans(14, .medium)).foregroundStyle(Theme.ink).lineLimit(1)
             Text(meta(p)).font(Theme.mono(11)).foregroundStyle(Theme.muted).lineLimit(1)
         }
+        .contentShape(Rectangle())
     }
 
     private func meta(_ p: Pass) -> String {

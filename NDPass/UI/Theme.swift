@@ -136,6 +136,7 @@ struct CoverArt: View {
             }
             .frame(width: g.size.width, height: g.size.height)
             .clipped()
+            .contentShape(Rectangle())
         }
     }
 

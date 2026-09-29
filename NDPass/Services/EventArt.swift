@@ -52,6 +52,10 @@ enum EventArt {
                 if ta == nil { ta = sa }
                 if tb == nil { tb = sb }
             }
+            // Teams not in the list (minor league, college, abroad) still get their own steady
+            // pair of colors, picked from their name.
+            if ta == nil { ta = TeamColors.fallback(a) }
+            if tb == nil { tb = TeamColors.fallback(b) }
             if ta != nil || tb != nil {
                 func colors(_ t: Team?, _ img: UIImage?) -> [UIColor] {
                     if let cs = t?.colors, !cs.isEmpty { return cs }
@@ -99,24 +103,9 @@ enum EventArt {
                     c.setShadow(offset: CGSize(width: 0, height: 10), blur: 30, color: UIColor.black.withAlphaComponent(0.45).cgColor)
                     img.draw(in: r)
                     c.setShadow(offset: .zero, blur: 0, color: nil)
-                } else {
-                    var w: CGFloat = 0; color.getWhite(&w, alpha: nil)
-                    let ink: UIColor = w > 0.6 ? UIColor(red: 0.11, green: 0.05, blue: 0.02, alpha: 1) : UIColor(red: 0.96, green: 0.91, blue: 0.85, alpha: 1)
-                    let p = NSMutableParagraphStyle(); p.alignment = .center
-                    // City small, nickname big: "New York" over "Liberty".
-                    let parts = side.0.split(separator: " ").map(String.init)
-                    let nick = parts.count > 1 ? parts.last! : side.0
-                    let city = parts.count > 1 ? parts.dropLast().joined(separator: " ") : ""
-                    let big = UIFont(name: "InstrumentSerif-Regular", size: nick.count > 9 ? 96 : 120) ?? .systemFont(ofSize: 96, weight: .black)
-                    let small = UIFont(name: "Geist", size: 30) ?? .systemFont(ofSize: 30, weight: .semibold)
-                    let wide = CGRect(x: center.x - 230, y: center.y - 110, width: 460, height: 260)
-                    if !city.isEmpty {
-                        (city.uppercased() as NSString).draw(with: CGRect(x: wide.minX, y: wide.minY, width: wide.width, height: 40), options: [.usesLineFragmentOrigin],
-                                                             attributes: [.font: small, .foregroundColor: ink.withAlphaComponent(0.8), .paragraphStyle: p, .kern: 3], context: nil)
-                    }
-                    (nick as NSString).draw(with: CGRect(x: wide.minX, y: wide.minY + 40, width: wide.width, height: 220), options: [.usesLineFragmentOrigin],
-                                            attributes: [.font: big, .foregroundColor: ink, .paragraphStyle: p], context: nil)
+
                 }
+                // No crest: the color alone. The ticket's title sits on top, so no name here.
             }
             crest(home, center: CGPoint(x: 320, y: 400), color: ca)
             crest(away, center: CGPoint(x: 680, y: 600), color: cb)
