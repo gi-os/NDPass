@@ -30,6 +30,7 @@ final class Pass {
     var scannedCode: String?
     var scannedFormatRaw: String?
     var sourceURL: String?
+    var sellerRaw: String?
     var createdAt: Date = Date()
 
     init(title: String = "") { self.title = title }
@@ -42,6 +43,11 @@ final class Pass {
     var scannedFormat: Symbology? {
         get { scannedFormatRaw.flatMap(Symbology.init(rawValue:)) }
         set { scannedFormatRaw = newValue?.rawValue }
+    }
+
+    var seller: Seller? {
+        get { sellerRaw.flatMap(Seller.init(rawValue:)) }
+        set { sellerRaw = newValue?.rawValue }
     }
 
     var start: Date? { PassTimes.start(date: date, time: time) }

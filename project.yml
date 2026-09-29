@@ -7,7 +7,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "2.3.2"
+    MARKETING_VERSION: "2.4.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     DEVELOPMENT_TEAM: ""
@@ -17,6 +17,13 @@ targets:
     platform: iOS
     sources:
       - path: NDPass
+      - path: Shared
+    dependencies:
+      - target: NDPassShare
+    entitlements:
+      path: NDPass/NDPass.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.gios.ndpass]
     info:
       path: NDPass/Info.plist
       properties:
@@ -41,6 +48,37 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
+  NDPassShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: NDPassShare
+      - path: Shared
+    entitlements:
+      path: NDPassShare/NDPassShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.gios.ndpass]
+    info:
+      path: NDPassShare/Info.plist
+      properties:
+        CFBundleDisplayName: NDPass
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 5
+              NSExtensionActivationSupportsFileWithMaxCount: 5
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsWebPageWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.share
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
   NDPassTests:
     type: bundle.unit-test
     platform: iOS

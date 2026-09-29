@@ -13,6 +13,7 @@ struct EditView: View {
     @State private var price = ""
     @State private var code = ""
     @State private var kind: EventKind = .movie
+    @State private var seller: Seller?
 
     var body: some View {
         NavigationStack {
@@ -21,6 +22,10 @@ struct EditView: View {
                     Picker("Kind", selection: $kind) { ForEach(EventKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
                     TextField("Title", text: $title)
                     TextField("Venue", text: $venue)
+                    Picker("Sold by", selection: $seller) {
+                        Text("—").tag(Seller?.none)
+                        ForEach(Seller.allCases, id: \.self) { Text($0.name).tag(Seller?.some($0)) }
+                    }
                 }
                 Section {
                     TextField("Date (2026-08-06 or 08-06)", text: $date).keyboardType(.numbersAndPunctuation)
@@ -40,7 +45,7 @@ struct EditView: View {
             }
             .onAppear {
                 title = pass.title; venue = pass.venue; date = pass.date; time = pass.time
-                seat = pass.seat; price = pass.price; code = pass.bookingCode; kind = pass.kind
+                seat = pass.seat; price = pass.price; code = pass.bookingCode; kind = pass.kind; seller = pass.seller
             }
         }
     }
@@ -54,6 +59,7 @@ struct EditView: View {
         pass.price = price
         pass.bookingCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         pass.kind = kind
+        pass.seller = seller
         try? ctx.save()
         Reminders.schedule(pass)
         dismiss()

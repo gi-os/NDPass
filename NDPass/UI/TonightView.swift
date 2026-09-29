@@ -100,9 +100,21 @@ struct TonightView: View {
                 FieldLabel(title: "Date", value: p.start.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? p.date, mono: true)
             }
             HStack(spacing: 10) {
-                NavigationLink(value: p.group) {
-                    Text("Show ticket").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: 50).background(Theme.accent, in: Capsule())
+                if let seller = p.seller, seller.rotatingCode, !g.contains(where: { $0.scannedCode != nil }) {
+                    Button { Seller.open(p) } label: {
+                        Text("Open in \(seller.name)").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
+                            .frame(maxWidth: .infinity, minHeight: 50).background(Theme.accent, in: Capsule())
+                    }
+                    NavigationLink(value: p.group) {
+                        Image(systemName: "ticket").font(.system(size: 18, weight: .medium)).foregroundStyle(Theme.ink)
+                            .frame(width: 50, height: 50).glass(in: Circle(), interactive: true)
+                    }
+                    .accessibilityLabel("Ticket details")
+                } else {
+                    NavigationLink(value: p.group) {
+                        Text("Show ticket").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
+                            .frame(maxWidth: .infinity, minHeight: 50).background(Theme.accent, in: Capsule())
+                    }
                 }
                 if !p.venue.isEmpty {
                     Button { Maps.open(p.venue) } label: {

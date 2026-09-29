@@ -21,10 +21,18 @@ enum OnDeviceReader {
         return .patterns
     }
 
-    static func read(_ image: UIImage) async -> Parsed {
+    static func read(_ image: UIImage, extraText: String? = nil) async -> Parsed {
         guard let cg = image.cgImage else { return Parsed() }
         let box = paper(cg)
-        let lines = text(cg, in: box)
+        var lines = text(cg, in: box)
+        if let extra = extraText { lines += extra.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+        var p = await read(lines: lines)
+        p.box = box
+        return p
+    }
+
+    /// Fields from lines of text (OCR, an email, a page).
+    static func read(lines: [String]) async -> Parsed {
         var p = Parsed()
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), SystemLanguageModel.default.isAvailable, let q = await model(lines) { p = q }
@@ -32,7 +40,7 @@ enum OnDeviceReader {
         #else
         p = patterns(lines)
         #endif
-        p.box = box
+        p.rawText = lines.prefix(200).joined(separator: "\n")
         p.date = TicketDate.resolveFromModel(p.date) ?? ""
         p.time = PassTimes.normalizeTime(p.time) ?? ""
         p.venue = PassTimes.titleCase(p.venue) ?? ""

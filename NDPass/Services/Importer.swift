@@ -9,7 +9,7 @@ final class Importer: ObservableObject {
     @Published private(set) var log: [String] = []
     @Published var lastError: String?
 
-    func add(_ image: UIImage, sourceURL: String? = nil, into ctx: ModelContext) async -> Pass? {
+    func add(_ image: UIImage, sourceURL: String? = nil, prefetchedText: String? = nil, into ctx: ModelContext) async -> Pass? {
         busy = true
         log = []
         lastError = nil
@@ -26,12 +26,13 @@ final class Importer: ObservableObject {
             }
         } else {
             step(OnDeviceReader.engine == .appleIntelligence ? "Reading the ticket on this iPhone…" : "Reading the ticket's text on this iPhone…")
-            parsed = await OnDeviceReader.read(upright)
+            parsed = await OnDeviceReader.read(upright, extraText: prefetchedText)
         }
         if parsed.notATicket { lastError = "That doesn't look like a ticket."; step("Not a ticket."); return nil }
         step("\(parsed.title) · \(PassTimes.humanDate(parsed.date) ?? "no date") · \(parsed.time)")
 
         let crop = parsed.box.flatMap { Self.crop(upright, to: $0) }
+        if parsed.seller == nil { parsed.seller = Seller.detect(text: parsed.rawText + " " + parsed.title + " " + parsed.venue, url: sourceURL) }
         let p = Pass(title: parsed.title)
         p.kind = parsed.kind
         p.venue = parsed.venue
@@ -42,6 +43,8 @@ final class Importer: ObservableObject {
         p.bookingCode = parsed.code
         p.confidence = parsed.confidence
         p.sourceURL = sourceURL
+        p.seller = parsed.seller
+        if let sl = parsed.seller { step("Sold by \(sl.name).") }
         p.photo = upright.jpegData(compressionQuality: 0.85)
         p.crop = crop?.jpegData(compressionQuality: 0.9)
 
@@ -63,6 +66,46 @@ final class Importer: ObservableObject {
         Reminders.schedule(p)
         step("Saved.")
         return p
+    }
+
+    /// A ticket from text: a shared email, a link's page, a PDF's words. Read on-device
+    /// (or by Claude if that's on), with the image if there is one.
+    func add(text: String, image: UIImage?, sourceURL: String?, into ctx: ModelContext) async -> Pass? {
+        if let image { return await add(image, sourceURL: sourceURL, prefetchedText: text, into: ctx) }
+        busy = true; log = []; lastError = nil
+        defer { busy = false }
+        var body = text
+        if body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let s = sourceURL, let u = URL(string: s) {
+            step("Opening the link…")
+            body = await Self.pageText(u)
+        }
+        step("Reading the ticket on this iPhone…")
+        var parsed = await OnDeviceReader.read(lines: body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        if parsed.notATicket || parsed.title == "Untitled" && parsed.date.isEmpty { lastError = "Couldn't find a ticket in that."; step("No ticket found."); return nil }
+        parsed.seller = Seller.detect(text: body, url: sourceURL)
+        let p = Pass(title: parsed.title)
+        p.kind = parsed.kind; p.venue = parsed.venue; p.date = parsed.date; p.time = parsed.time
+        p.seat = parsed.seat; p.price = parsed.price; p.bookingCode = parsed.code; p.confidence = parsed.confidence
+        p.sourceURL = sourceURL
+        p.seller = parsed.seller
+        step("\(parsed.title) · \(PassTimes.humanDate(parsed.date) ?? "no date")")
+        await decorate(p)
+        let all = (try? ctx.fetch(FetchDescriptor<Pass>())) ?? []
+        if let twin = all.first(where: { $0.sameShowing(as: p) }) { p.group = twin.group }
+        ctx.insert(p); try? ctx.save()
+        Reminders.schedule(p)
+        step("Saved.")
+        return p
+    }
+
+    /// A web page as lines of text (e-ticket pages are often mostly script; this is best effort).
+    static func pageText(_ u: URL) async -> String {
+        guard let (d, _) = try? await URLSession.shared.data(from: u), let html = String(data: d, encoding: .utf8) else { return "" }
+        var s = html.replacingOccurrences(of: "(?s)<(script|style)[^>]*>.*?</\\1>", with: " ", options: .regularExpression)
+        s = s.replacingOccurrences(of: "<(br|/p|/div|/li|/h[1-6]|/tr)[^>]*>", with: "\n", options: .regularExpression)
+        s = s.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        s = s.replacingOccurrences(of: "&amp;", with: "&").replacingOccurrences(of: "&nbsp;", with: " ")
+        return s
     }
 
     /// Poster and runtime for a film, drawn art for a game or a concert.

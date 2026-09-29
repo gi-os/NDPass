@@ -112,11 +112,28 @@ struct DetailView: View {
             }
             Perforation().padding(.horizontal, -8).padding(.vertical, 2)
             CodeTile(passes: passes)
-            Button { door = true } label: {
-                Label("Show at the door", systemImage: "sun.max").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
-                    .frame(maxWidth: .infinity, minHeight: 52).background(Theme.accent, in: Capsule())
+            if let seller = p.seller, seller.rotatingCode, !passes.contains(where: { $0.scannedCode != nil }) {
+                // The code rotates: only the seller's app can get you in.
+                Button { Seller.open(p) } label: {
+                    Label("Open in \(seller.name)", systemImage: "arrow.up.forward.app").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 52).background(Theme.accent, in: Capsule())
+                }
+                Text("\(seller.name) tickets use a code that changes every few seconds, so they only scan from the \(seller.name) app.")
+                    .font(Theme.sans(12)).foregroundStyle(Theme.muted)
+            } else {
+                Button { door = true } label: {
+                    Label("Show at the door", systemImage: "sun.max").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
+                        .frame(maxWidth: .infinity, minHeight: 52).background(Theme.accent, in: Capsule())
+                }
+                .disabled(DoorView.code(for: passes.first) == nil && passes.allSatisfy { $0.photo == nil })
+                if let seller = p.seller {
+                    Button { Seller.open(p) } label: {
+                        Label("Open in \(seller.name)", systemImage: "arrow.up.forward.app").font(Theme.sans(15, .medium)).foregroundStyle(Theme.ink)
+                            .frame(maxWidth: .infinity, minHeight: 44).glass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .disabled(DoorView.code(for: passes.first) == nil && passes.allSatisfy { $0.photo == nil })
         }
         .padding(.horizontal, 22).padding(.vertical, 22)
         .glass(in: StubShape(corner: 28, notch: 14, at: 0.5))

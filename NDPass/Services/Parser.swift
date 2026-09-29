@@ -12,6 +12,8 @@ struct Parsed {
     var confidence = 0.0
     var box: CGRect?   // normalized 0...1, top-left origin
     var notATicket = false
+    var seller: Seller?
+    var rawText = ""
 }
 
 enum ParseError: LocalizedError {
@@ -44,6 +46,7 @@ enum Parser {
           "seat": "seat/row info or null",
           "price": "price with $ or null",
           "code": "booking/confirmation reference, exactly as printed, or null",
+          "seller": "who sold it if shown (ticketmaster, livenation, dice, axs, seatgeek, eventbrite, stubhub, fandango, amc, regal, atom, alamo, eventim, universe) or null",
           "confidence": 0.95,
           "box": [x0, y0, x1, y1]
         }
@@ -144,6 +147,7 @@ enum Parser {
         p.price = str("price")
         p.code = BookingCode.normalize(str("code")) ?? ""
         p.confidence = (j["confidence"] as? NSNumber)?.doubleValue ?? 0
+        p.seller = Seller(rawValue: str("seller").lowercased().replacingOccurrences(of: " ", with: ""))
         switch str("kind").lowercased() { case "sports": p.kind = .sports; case "concert": p.kind = .concert; default: p.kind = .movie }
         if let box = j["box"] as? [Any], box.count == 4 {
             let v = box.compactMap { ($0 as? NSNumber)?.doubleValue }

@@ -26,6 +26,19 @@ platform :ios do
       Spaceship::ConnectAPI::BundleId.create(name: "#{env['APP_NAME']} #{bid.split('.').last}", identifier: bid, platform: "IOS")
       UI.success("Registered bundle ID #{bid}")
     end
+    # App Groups capability on every ID when the app uses one (the group itself is made,
+    # and assigned to the IDs, once by hand on developer.apple.com).
+    if env["APP_GROUP"].to_s != ""
+      ids.each do |bid|
+        begin
+          b = Spaceship::ConnectAPI::BundleId.find(bid)
+          has = b.get_capabilities.any? { |c| c.capability_type == "APP_GROUPS" }
+          b.create_capability("APP_GROUPS") unless has
+        rescue => e
+          UI.important("Couldn't turn on App Groups for #{bid}: #{e.message}")
+        end
+      end
+    end
 
     setup_ci
     match(
