@@ -10,7 +10,8 @@ struct DoorView: View {
     static func code(for p: Pass?) -> (UIImage, Bool)? {
         guard let p else { return nil }
         if let s = p.scannedCode, let f = p.scannedFormat, let img = Barcodes.render(s, as: f) { return (img, true) }
-        if let c = BookingCode.normalize(p.bookingCode), let img = Barcodes.render(c, as: BookingCode.symbology(for: c)) { return (img, false) }
+        // Only the code read off the ticket itself. Codes drawn from a booking reference
+        // rarely scan, so NDPass doesn't make them; the stub photo goes to the door instead.
         return nil
     }
 

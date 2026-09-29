@@ -35,7 +35,7 @@ struct EditView: View {
                     TextField("Seat", text: $seat)
                     TextField("Price", text: $price)
                     TextField("Booking reference", text: $code).autocorrectionDisabled().textInputAutocapitalization(.never)
-                } footer: { Text("One wrong character makes a generated code useless, so check it against the paper.") }
+                }
             }
             .navigationTitle("Edit ticket")
             .navigationBarTitleDisplayMode(.inline)

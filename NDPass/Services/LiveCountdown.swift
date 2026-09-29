@@ -62,7 +62,6 @@ enum LiveCountdown {
 
     private static func codeImage(_ p: Pass) -> UIImage? {
         if let s = p.scannedCode, let f = p.scannedFormat, let img = Barcodes.render(s, as: f) { return img }
-        if let c = BookingCode.normalize(p.bookingCode) { return Barcodes.render(c, as: BookingCode.symbology(for: c)) }
         return nil
     }
 

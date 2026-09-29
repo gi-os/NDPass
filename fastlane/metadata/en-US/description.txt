@@ -1,7 +1,7 @@
 Photograph a ticket stub and NDPass reads it: the film, the theater, the date and time, your seat, the price and the booking code. Every ticket is kept in one place, sorted by showtime, and moves to your collection once the film is over.
 
 AT THE DOOR
-NDPass finds the barcode printed on your ticket and shows it full screen on white, at full brightness. If there isn't one, it draws a code from the booking reference and tells you it's generated.
+NDPass finds the barcode printed on your ticket and shows it full screen on white, at full brightness. If there isn't one, it shows the photo of your stub.
 
 TONIGHT
 The next showing fills the screen: the film's art, a countdown, your seats, and directions to the theater in Apple Maps or Google Maps.

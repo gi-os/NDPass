@@ -182,13 +182,12 @@ struct CodeTile: View {
                 Image(uiImage: found.0).interpolation(.none).resizable().scaledToFit()
                     .padding(10).frame(width: side, height: side).background(Theme.paper, in: RoundedRectangle(cornerRadius: 16))
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(found.1 ? "From your ticket" : "Generated").font(Theme.sans(15, .medium)).foregroundStyle(Theme.ink)
-                    Text(found.1 ? "The code printed on the stub, read off your photo. Scans at the door."
-                                 : "Drawn from \(p?.bookingCode ?? ""). Scans only if the venue used this reference.")
+                    Text("From your ticket").font(Theme.sans(15, .medium)).foregroundStyle(Theme.ink)
+                    Text("The code printed on the stub, read off your photo. Scans at the door.")
                         .font(Theme.sans(13)).foregroundStyle(Theme.ink.opacity(0.78)).fixedSize(horizontal: false, vertical: true)
                 }
             } else {
-                Text("No code on this ticket. Add the booking reference in Edit, or show the stub photo at the door.")
+                Text(p?.photo != nil ? "No readable code on this ticket. Show the stub photo at the door." : "No code on this ticket.")
                     .font(Theme.sans(13)).foregroundStyle(Theme.muted)
             }
         }
