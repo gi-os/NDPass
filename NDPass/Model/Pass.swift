@@ -35,6 +35,18 @@ final class Pass {
 
     init(title: String = "") { self.title = title }
 
+    /// A detached copy with every field, for moving between stores.
+    func copy() -> Pass {
+        let p = Pass(title: title)
+        p.id = id; p.group = group; p.kindRaw = kindRaw; p.venue = venue; p.date = date; p.time = time
+        p.seat = seat; p.price = price; p.bookingCode = bookingCode; p.confidence = confidence
+        p.photo = photo; p.crop = crop; p.art = art
+        p.tmdbID = tmdbID; p.posterPath = posterPath; p.backdropPath = backdropPath; p.logoPath = logoPath
+        p.overview = overview; p.runtime = runtime; p.scannedCode = scannedCode; p.scannedFormatRaw = scannedFormatRaw
+        p.sourceURL = sourceURL; p.sellerRaw = sellerRaw; p.createdAt = createdAt
+        return p
+    }
+
     var kind: EventKind {
         get { EventKind(rawValue: kindRaw) ?? .movie }
         set { kindRaw = newValue.rawValue }

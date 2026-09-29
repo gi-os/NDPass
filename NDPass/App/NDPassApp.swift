@@ -10,7 +10,9 @@ struct NDPassApp: App {
     init() {
         Theme.applyNavigationFonts()
         Store.migrate()
-        _container = State(initialValue: Demo.active ? Demo.container() : Store.container())
+        let c = Demo.active ? Demo.container() : Store.container()
+        if !Demo.active { _ = Store.mergeOld(into: c) }
+        _container = State(initialValue: c)
     }
 
     var body: some Scene {
