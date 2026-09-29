@@ -82,7 +82,7 @@ struct RootView: View {
             // Every game and concert drawn again with the current design, once (art3: women's
             // rosters and crest colors), and again after a TheSportsDB key is added.
             guard !Demo.active else { return }
-            let tag = Keys.get(.sportsdb) == nil ? "art4" : "art4+sdb"
+            let tag = Keys.get(.sportsdb) == nil ? "art5" : "art5+sdb"
             let d = Store.defaults
             var done = Set(d.stringArray(forKey: tag) ?? [])
             let events = ((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).filter { $0.kind != .movie && !done.contains($0.id.uuidString) }

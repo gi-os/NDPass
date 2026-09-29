@@ -133,7 +133,7 @@ struct SettingsView: View {
                 } header: { Text("TMDb key (optional)") } footer: { Text("Posters and film search.") }
                 Section {
                     SecureField("TheSportsDB API key", text: $sportsdb).autocorrectionDisabled().textInputAutocapitalization(.never)
-                } header: { Text("TheSportsDB key (optional)") } footer: { Text("Team crests and colors for games, women's leagues included. Get a key at thesportsdb.com.") }
+                } header: { Text("TheSportsDB key (optional)") } footer: { Text("Games already get their team colors without a key. A key adds team crests.") }
                 Section {
                     Picker("Directions in", selection: $maps) {
                         ForEach(Maps.App.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -164,7 +164,7 @@ struct SettingsView: View {
                         }
                     }
                     Link(destination: URL(string: "https://www.thesportsdb.com")!) {
-                        Text("Team crests from TheSportsDB").foregroundStyle(Theme.ink)
+                        Text("Team crests from TheSportsDB; team colors from teamcolors").foregroundStyle(Theme.ink)
                     }
                     Text("Artist photos from Deezer; album art from Apple").foregroundStyle(Theme.ink)
                     Text("NDPass \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")").foregroundStyle(.secondary)

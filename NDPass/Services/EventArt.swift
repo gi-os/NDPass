@@ -20,6 +20,7 @@ enum EventArt {
         let (ba, bb) = await (ia, ib)
         func colors(_ t: Team, _ img: UIImage?) -> [UIColor] {
             if !t.colors.isEmpty { return t.colors }
+            if let e = TeamColors.find(t.name).first { return e.colors }
             return img.flatMap(Teams.mainColor).map { [$0] } ?? []
         }
         return split(home: (a.name, ba, colors(a, ba)), away: (b.name, bb, colors(b, bb)), seed: a.name + b.name).jpegData(compressionQuality: 0.9)
@@ -38,21 +39,26 @@ enum EventArt {
             return (musicCard().pngData(), nil)
         case .sports:
             guard let (a, b) = Matchup.split(title) else { return (nil, nil) }
-            // With a TheSportsDB key: each team's crest on its own color. Without one, or if a
-            // team isn't found, its name set in type on that side.
+            // Built-in team colors first: each half in its team's colors, the name in type. No
+            // key, no network. A TheSportsDB key adds crests on top, when it finds the team.
+            let (ca, cb) = TeamColors.matchup(a, b, context: title + " " + context)
+            var ta = ca?.team, tb = cb?.team
+            var ba: UIImage?, bb: UIImage?
             if let key = Keys.get(.sportsdb) {
-                let (ta, tb) = await Teams.matchup(a, b, context: title + " " + context, key: key)
-                if ta != nil || tb != nil {
-                    async let ia = Teams.badge(ta)
-                    async let ib = Teams.badge(tb)
-                    let (ba, bb) = await (ia, ib)
-                    func colors(_ t: Team?, _ img: UIImage?) -> [UIColor] {
-                        if let cs = t?.colors, !cs.isEmpty { return cs }
-                        return img.flatMap(Teams.mainColor).map { [$0] } ?? []
-                    }
-                    let img = split(home: (ta?.name ?? a, ba, colors(ta, ba)), away: (tb?.name ?? b, bb, colors(tb, bb)), seed: title)
-                    return (img.jpegData(compressionQuality: 0.9), "\(ta?.name ?? a) vs \(tb?.name ?? b)")
+                let (sa, sb) = await Teams.matchup(ta?.name ?? a, tb?.name ?? b, context: title + " " + context, key: key)
+                async let ia = Teams.badge(sa)
+                async let ib = Teams.badge(sb)
+                (ba, bb) = await (ia, ib)
+                if ta == nil { ta = sa }
+                if tb == nil { tb = sb }
+            }
+            if ta != nil || tb != nil {
+                func colors(_ t: Team?, _ img: UIImage?) -> [UIColor] {
+                    if let cs = t?.colors, !cs.isEmpty { return cs }
+                    return img.flatMap(Teams.mainColor).map { [$0] } ?? []
                 }
+                let img = split(home: (ta?.name ?? a, ba, colors(ta, ba)), away: (tb?.name ?? b, bb, colors(tb, bb)), seed: title)
+                return (img.jpegData(compressionQuality: 0.9), "\(ta?.name ?? a) vs \(tb?.name ?? b)")
             }
             return (matchCard(a, b).jpegData(compressionQuality: 0.9), nil)
         }
@@ -97,8 +103,19 @@ enum EventArt {
                     var w: CGFloat = 0; color.getWhite(&w, alpha: nil)
                     let ink: UIColor = w > 0.6 ? UIColor(red: 0.11, green: 0.05, blue: 0.02, alpha: 1) : UIColor(red: 0.96, green: 0.91, blue: 0.85, alpha: 1)
                     let p = NSMutableParagraphStyle(); p.alignment = .center
-                    let font = UIFont(name: "InstrumentSerif-Regular", size: 84) ?? .systemFont(ofSize: 72, weight: .black)
-                    (side.0 as NSString).draw(with: box, options: [.usesLineFragmentOrigin], attributes: [.font: font, .foregroundColor: ink, .paragraphStyle: p], context: nil)
+                    // City small, nickname big: "New York" over "Liberty".
+                    let parts = side.0.split(separator: " ").map(String.init)
+                    let nick = parts.count > 1 ? parts.last! : side.0
+                    let city = parts.count > 1 ? parts.dropLast().joined(separator: " ") : ""
+                    let big = UIFont(name: "InstrumentSerif-Regular", size: nick.count > 9 ? 96 : 120) ?? .systemFont(ofSize: 96, weight: .black)
+                    let small = UIFont(name: "Geist", size: 30) ?? .systemFont(ofSize: 30, weight: .semibold)
+                    let wide = CGRect(x: center.x - 230, y: center.y - 110, width: 460, height: 260)
+                    if !city.isEmpty {
+                        (city.uppercased() as NSString).draw(with: CGRect(x: wide.minX, y: wide.minY, width: wide.width, height: 40), options: [.usesLineFragmentOrigin],
+                                                             attributes: [.font: small, .foregroundColor: ink.withAlphaComponent(0.8), .paragraphStyle: p, .kern: 3], context: nil)
+                    }
+                    (nick as NSString).draw(with: CGRect(x: wide.minX, y: wide.minY + 40, width: wide.width, height: 220), options: [.usesLineFragmentOrigin],
+                                            attributes: [.font: big, .foregroundColor: ink, .paragraphStyle: p], context: nil)
                 }
             }
             crest(home, center: CGPoint(x: 320, y: 400), color: ca)

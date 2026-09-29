@@ -169,3 +169,24 @@ final class TornStubTests: XCTestCase {
         XCTAssertFalse(p.contains(CGPoint(x: 2, y: 2)))
     }
 }
+
+final class TeamColorTests: XCTestCase {
+    func testWomensShortNames() {
+        let (a, b) = TeamColors.matchup("NY Liberty", "Aces", context: "")
+        XCTAssertEqual(a?.name, "New York Liberty")
+        XCTAssertEqual(b?.name, "Las Vegas Aces")
+    }
+    func testNWSL() {
+        let (a, b) = TeamColors.matchup("Gotham", "Portland Thorns", context: "")
+        XCTAssertEqual(a?.league, "NWSL")
+        XCTAssertEqual(b?.league, "NWSL")
+    }
+    func testMen() {
+        let (a, b) = TeamColors.matchup("Knicks", "Celtics", context: "")
+        XCTAssertEqual(a?.name, "New York Knicks")
+        XCTAssertEqual(b?.name, "Boston Celtics")
+    }
+    func testEveryEntryHasColors() {
+        XCTAssertTrue(TeamColors.all.allSatisfy { !$0.hex.isEmpty })
+    }
+}

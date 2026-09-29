@@ -87,8 +87,16 @@ struct TeamPicker: View {
                     ForEach(results) { t in
                         Button { picks[side] = t; if side == 0 && picks[1] == nil { side = 1 } } label: {
                             HStack(spacing: 12) {
-                                AsyncImage(url: t.badge.flatMap { URL(string: $0.absoluteString + "/small") }) { $0.resizable().scaledToFit() } placeholder: { Color.gray.opacity(0.15) }
-                                    .frame(width: 44, height: 44)
+                                if let b = t.badge {
+                                    AsyncImage(url: URL(string: b.absoluteString + "/small")) { $0.resizable().scaledToFit() } placeholder: { Color.gray.opacity(0.15) }
+                                        .frame(width: 44, height: 44)
+                                } else {
+                                    // Built-in teams: their two colors.
+                                    HStack(spacing: 0) {
+                                        ForEach(Array(t.colors.prefix(2).enumerated()), id: \.offset) { _, c in Color(uiColor: c) }
+                                    }
+                                    .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
                                 VStack(alignment: .leading) {
                                     Text(t.name).font(.headline)
                                     Text(t.league.isEmpty ? " " : t.league).font(.caption).foregroundStyle(.secondary)
@@ -102,7 +110,6 @@ struct TeamPicker: View {
             }
             .overlay {
                 if loading || saving { ProgressView() }
-                else if Keys.get(.sportsdb) == nil { Text("Add a TheSportsDB key in Settings to search teams.").foregroundStyle(.secondary).multilineTextAlignment(.center).padding() }
                 else if results.isEmpty { Text("No teams found.").foregroundStyle(.secondary) }
             }
             .searchable(text: $queries[side], prompt: side == 0 ? "Team 1" : "Team 2")
@@ -118,9 +125,8 @@ struct TeamPicker: View {
     }
 
     private func search() async {
-        guard let key = Keys.get(.sportsdb) else { return }
         loading = true
-        results = await Teams.lookup(queries[side], key: key)
+        results = await Teams.lookup(queries[side], key: Keys.get(.sportsdb))
         loading = false
     }
 

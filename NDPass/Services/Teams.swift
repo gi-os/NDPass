@@ -64,7 +64,14 @@ enum Teams {
     }
 
     /// Every team TheSportsDB has for a name, for picking by hand.
-    static func lookup(_ q: String, key: String) async -> [Team] {
+    static func lookup(_ q: String, key: String?) async -> [Team] {
+        let local = TeamColors.find(q).map(\.team)
+        guard let key else { return local }
+        let remote = await lookupRemote(q, key: key)
+        return local + remote.filter { r in !local.contains { $0.name == r.name } }
+    }
+
+    private static func lookupRemote(_ q: String, key: String) async -> [Team] {
         let cleaned = expand(q).trimmingCharacters(in: .whitespaces)
         var out = await query(cleaned, key: key)
         if out.isEmpty, let last = cleaned.split(separator: " ").last, last.count > 3 { out = await query(String(last), key: key) }
