@@ -24,7 +24,7 @@ targets:
     entitlements:
       path: NDPass/NDPass.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.gios.ndpass.shared]
+        com.apple.security.application-groups: [group.com.gios.ndpass]
     info:
       path: NDPass/Info.plist
       properties:
@@ -63,7 +63,7 @@ targets:
     entitlements:
       path: NDPassShare/NDPassShare.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.gios.ndpass.shared]
+        com.apple.security.application-groups: [group.com.gios.ndpass]
     info:
       path: NDPassShare/Info.plist
       properties:
@@ -97,7 +97,7 @@ targets:
     entitlements:
       path: NDPassWidgets/NDPassWidgets.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.gios.ndpass.shared]
+        com.apple.security.application-groups: [group.com.gios.ndpass]
     info:
       path: NDPassWidgets/Info.plist
       properties:

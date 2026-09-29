@@ -20,7 +20,7 @@ struct CountdownAttributes: ActivityAttributes {
 
 enum CountdownArt {
     static func folder(_ group: String) -> URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.gios.ndpass.shared")?
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.gios.ndpass")?
             .appendingPathComponent("Countdown/\(group)", isDirectory: true)
     }
     static func backdrop(_ g: String) -> URL? { folder(g)?.appendingPathComponent("backdrop.jpg") }
