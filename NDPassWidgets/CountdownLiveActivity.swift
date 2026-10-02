@@ -28,6 +28,18 @@ private struct Backdrop: View {
     }
 }
 
+/// The backdrop and logo the app put together at this size; the gradient if it isn't there.
+private struct IslandTile: View {
+    let group: String
+    var body: some View {
+        if let img = C.image(CountdownArt.island(group)) {
+            Image(uiImage: img).resizable().scaledToFill()
+        } else {
+            StubGradient(seed: group)
+        }
+    }
+}
+
 private struct Logo: View {
     let a: CountdownAttributes
     var height: CGFloat
@@ -61,11 +73,8 @@ struct CountdownLiveActivity: Widget {
             let a = ctx.attributes
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ZStack(alignment: .bottom) {
-                        Backdrop(group: a.group)
-                        Logo(a: a, height: 14).padding(.horizontal, 4).padding(.bottom, 3)
-                    }
-                    .frame(width: 64, height: 40).clipShape(RoundedRectangle(cornerRadius: 8)).padding(.leading, 4)
+                    IslandTile(group: a.group)
+                        .frame(width: 64, height: 40).clipShape(RoundedRectangle(cornerRadius: 8)).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     countdown(ctx.state).font(C.serif(30)).monospacedDigit().foregroundStyle(C.accent)
@@ -87,7 +96,7 @@ struct CountdownLiveActivity: Widget {
                     .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                Backdrop(group: a.group).frame(width: 26, height: 18).clipShape(RoundedRectangle(cornerRadius: 5))
+                IslandTile(group: a.group).frame(width: 29, height: 18).clipShape(RoundedRectangle(cornerRadius: 5))
             } compactTrailing: {
                 countdown(ctx.state).font(C.mono(12)).monospacedDigit().foregroundStyle(C.accent).frame(maxWidth: 58)
             } minimal: {

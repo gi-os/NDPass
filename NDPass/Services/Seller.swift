@@ -85,6 +85,22 @@ enum Seller: String, CaseIterable, Codable {
         }
     }
 
+    /// The seller's app, opened straight to it when a link won't do.
+    var appURL: URL? {
+        switch self {
+        case .ticketmaster: return URL(string: "ticketmaster://")
+        case .livenation: return URL(string: "livenation://")
+        case .dice: return URL(string: "dice://")
+        case .axs: return URL(string: "axs://")
+        case .seatgeek: return URL(string: "seatgeek://")
+        case .eventbrite: return URL(string: "eventbrite://")
+        case .stubhub: return URL(string: "stubhub://")
+        case .fandango: return URL(string: "fandango://")
+        case .atom: return URL(string: "atomtickets://")
+        default: return nil
+        }
+    }
+
     /// Only this seller's app can get you in (the code rotates).
     var rotatingCode: Bool { [.ticketmaster, .livenation, .dice, .axs, .seatgeek].contains(self) }
 
@@ -99,10 +115,21 @@ enum Seller: String, CaseIterable, Codable {
     #if !NDPASS_EXTENSION
     static func open(_ p: Pass) {
         guard let s = p.seller else { return }
-        if let src = p.sourceURL, let u = URL(string: src), let h = u.host?.lowercased(), s.hosts.contains(where: { h.hasSuffix($0) }) {
-            UIApplication.shared.open(u); return
+        var links: [URL] = []
+        if let src = p.sourceURL, let u = URL(string: src), let h = u.host?.lowercased(), s.hosts.contains(where: { h.hasSuffix($0) }) { links.append(u) }
+        links.append(s.ticketsURL)
+        // 1. The order or tickets link, but only if the seller's app takes it (universal link).
+        // 2. The app itself, by its URL scheme. 3. The website, when the app isn't installed.
+        func web() { UIApplication.shared.open(links[0]) }
+        func scheme() {
+            guard let a = s.appURL else { return web() }
+            UIApplication.shared.open(a) { ok in if !ok { web() } }
         }
-        UIApplication.shared.open(s.ticketsURL)
+        func universal(_ i: Int) {
+            guard i < links.count else { return scheme() }
+            UIApplication.shared.open(links[i], options: [.universalLinksOnly: true]) { ok in if !ok { universal(i + 1) } }
+        }
+        universal(0)
     }
     #endif
 }

@@ -40,16 +40,16 @@ struct TonightView: View {
     private func hero(_ g: [Pass]?) -> some View {
         ZStack(alignment: .top) {
             // Pulling down past the top zooms the art to fill instead of showing black above it.
-            CoverArt(pass: g?.first, preferBackdrop: g?.first?.backdropPath != nil).frame(height: 560).frame(maxWidth: .infinity)
+            CoverArt(pass: g?.first, preferBackdrop: g?.first?.backdropPath != nil).frame(height: 500).frame(maxWidth: .infinity)
                 .visualEffect { content, proxy in
                     let pull = max(0, proxy.frame(in: .scrollView(axis: .vertical)).minY)
-                    return content.scaleEffect(1 + pull / 560, anchor: .bottom)
+                    return content.scaleEffect(1 + pull / 500, anchor: .bottom)
                 }
             // The fade into the page rides with the art's bottom edge.
             LinearGradient(stops: [.init(color: .clear, location: 0.25),
                                    .init(color: Theme.bg.opacity(0.85), location: 0.78), .init(color: Theme.bg, location: 1)],
                            startPoint: .top, endPoint: .bottom)
-                .frame(height: 560)
+                .frame(height: 500)
             // Pulling down past the top: the shade behind the logo and + and the bar itself stay
             // pinned to the top of the screen; only the art stretches under them.
             LinearGradient(colors: [Theme.bg.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
@@ -70,7 +70,7 @@ struct TonightView: View {
                             .padding(.horizontal, 32)
                     } else { Color.clear }
                 }
-                .frame(height: 168, alignment: .bottom)
+                .frame(height: 124, alignment: .bottom)
                 .padding(.bottom, 12)
                 if let g { stub(g).padding(.horizontal, 16) } else { empty.padding(.horizontal, 16) }
             }
@@ -150,7 +150,7 @@ struct TonightView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("NO TICKETS YET").font(Theme.mono(12)).tracking(1.4).foregroundStyle(Theme.amber)
             Text("Photograph a stub").font(Theme.serif(44)).foregroundStyle(Theme.ink)
-            Text("Tap + and point the camera at a ticket, or pick a screenshot. Claude reads the film, theater, date, time, seat and price.")
+            Text("Tap + and point the camera at a ticket, or pick a screenshot. NDPass reads the film, theater, date, time, seat and price.")
                 .font(Theme.sans(15)).foregroundStyle(Theme.ink.opacity(0.85))
         }
         .padding(24)
@@ -172,7 +172,7 @@ struct TonightView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .padding(.top, 28)
+        .padding(.top, 18)
     }
 
     // MARK: iPhone Duo inner display

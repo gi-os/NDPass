@@ -26,4 +26,6 @@ enum CountdownArt {
     static func backdrop(_ g: String) -> URL? { folder(g)?.appendingPathComponent("backdrop.jpg") }
     static func logo(_ g: String) -> URL? { folder(g)?.appendingPathComponent("logo.png") }
     static func code(_ g: String) -> URL? { folder(g)?.appendingPathComponent("code.png") }
+    /// Backdrop and logo already put together, at the Dynamic Island's size.
+    static func island(_ g: String) -> URL? { folder(g)?.appendingPathComponent("island.png") }
 }
