@@ -231,3 +231,70 @@ final class TBDTests: XCTestCase {
         XCTAssertTrue(PassTimes.tbd("TBA")); XCTAssertTrue(PassTimes.tbd("Time TBD")); XCTAssertFalse(PassTimes.tbd("7:30 PM"))
     }
 }
+
+@MainActor
+final class KindsTests: XCTestCase {
+    private var container: ModelContainer!
+    override func setUp() async throws {
+        container = try ModelContainer(for: Pass.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    }
+
+    func testParseKind() {
+        XCTAssertEqual(EventKind.parse("movie"), .movie)
+        XCTAssertEqual(EventKind.parse("sports"), .sports)
+        XCTAssertEqual(EventKind.parse("Broadway musical"), .theater)
+        XCTAssertEqual(EventKind.parse("museum"), .event)
+        XCTAssertEqual(EventKind.parse("transit"), .transit)
+        XCTAssertEqual(EventKind.parse("boarding pass"), .transit)
+        XCTAssertEqual(EventKind.parse("film screening"), .movie)
+        XCTAssertEqual(EventKind.parse(""), .movie)
+        XCTAssertEqual(TransitMode.parse("Amtrak Northeast Regional"), .train)
+        XCTAssertEqual(TransitMode.parse("flight"), .flight)
+    }
+
+    func testTransitTimesStayAsPrinted() {
+        XCTAssertEqual(PassTimes.normalizeTime("6:05 AM", literal: true), "6:05 AM")
+        XCTAssertEqual(PassTimes.normalizeTime("07:15", literal: true), "7:15 AM")
+        XCTAssertEqual(PassTimes.normalizeTime("19:40", literal: true), "7:40 PM")
+        XCTAssertEqual(PassTimes.normalizeTime("6:05 AM"), "6:05 PM")   // films keep the misread rule
+    }
+
+    func testRoute() {
+        XCTAssertEqual(Transit.route("nyp", "BOS"), "NYP → BOS")
+        XCTAssertEqual(Transit.route("NEW YORK PENN", "Boston South"), "New York Penn → Boston South")
+        XCTAssertEqual(Transit.route("", "Philadelphia"), "To Philadelphia")
+        XCTAssertNil(Transit.route("", ""))
+        XCTAssertEqual(Transit.split("NYP → BOS")?.1, "BOS")
+        XCTAssertEqual(Transit.split("Newark to Chicago")?.0, "Newark")
+    }
+
+    func testClaudeTransitJSON() throws {
+        let p = try Parser.decodeText(#"{"kind":"transit","movieTitle":null,"theater":"NEW YORK PENN STATION","date":"2026-10-14","time":"6:05 AM","seat":"Car 4 Seat 9C","mode":"train","carrier":"Amtrak","trip":"2151","from":"NYP","to":"BOS","arrival":"9:45 AM","gate":"9W","code":"A1B2C3","confidence":0.9}"#)
+        XCTAssertEqual(p.kind, .transit)
+        XCTAssertEqual(p.title, "NYP → BOS")
+        XCTAssertEqual(p.time, "6:05 AM")
+        XCTAssertEqual(p.arrival, "9:45 AM")
+        XCTAssertEqual(p.trip, "2151")
+        let pass = Importer.pass(from: p); container.mainContext.insert(pass)
+        XCTAssertEqual(pass.transitMode, .train)
+        XCTAssertEqual(pass.kindLine, "TRAIN · AMTRAK 2151")
+        XCTAssertEqual(pass.title, "NYP → BOS")
+    }
+
+    func testOvernightArrival() {
+        let p = Pass(title: "JFK → LHR"); container.mainContext.insert(p); p.kind = .transit
+        p.date = "2026-10-14"; p.time = "9:30 PM"; p.arrival = "9:40 AM"
+        XCTAssertEqual(p.arrivalDate, p.start.map { Calendar.current.date(byAdding: .minute, value: 12 * 60 + 10, to: $0)! })
+    }
+
+    func testLockScreenCodeFitsTheActivity() {
+        for (text, sym) in [("https://example.com/ticket/8f2a9c1d4e7b", Symbology.qr), ("AB12CD34EF", .code128), (String(repeating: "X", count: 60), .pdf417)] {
+            guard let img = Barcodes.render(text, as: sym, fit: 300) else { return XCTFail("\(sym) didn't draw") }
+            let w = img.size.width * img.scale, h = img.size.height * img.scale
+            // Never taller than the Lock Screen card; 2D codes inside the 300 px tile.
+            XCTAssertLessThanOrEqual(h, 300, "\(sym)")
+            if sym == .qr { XCTAssertLessThanOrEqual(w, 300) } else { XCTAssertLessThanOrEqual(w, 900, "\(sym)") }
+            XCTAssertGreaterThan(img.size.width, 60)
+        }
+    }
+}

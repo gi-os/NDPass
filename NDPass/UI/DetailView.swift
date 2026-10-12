@@ -58,7 +58,7 @@ struct DetailView: View {
                     case .movie: Button { picking = true } label: { Label("Pick the film", systemImage: "film") }
                     case .sports: Button { pickingTeams = true } label: { Label("Pick the teams", systemImage: "sportscourt") }
                     case .concert: Button { pickingArtist = true } label: { Label("Pick the artist", systemImage: "music.mic") }
-                    case nil: EmptyView()
+                    default: EmptyView()
                     }
                     Button { merging = true } label: { Label("Merge with another ticket", systemImage: "rectangle.stack.badge.plus") }
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete", systemImage: "trash") }
@@ -94,8 +94,8 @@ struct DetailView: View {
     }
 
     private func kindLine(_ p: Pass) -> String {
-        var s = ["FILM", "GAME", "CONCERT"][[EventKind.movie, .sports, .concert].firstIndex(of: p.kind) ?? 0]
-        if let r = p.runtime { s += " · \(r / 60)H \(r % 60)M" }
+        var s = p.kindLine
+        if let r = p.runtime, p.kind == .movie { s += " · \(r / 60)H \(r % 60)M" }
         return s
     }
 
@@ -103,20 +103,22 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             TimelineView(.periodic(from: .now, by: 30)) { c in
                 if let s = Countdown.short(to: p.start, now: c.date), !p.isArchived {
-                    Text("STARTS \(s)").font(Theme.mono(12)).tracking(1.4).foregroundStyle(Theme.amber)
+                    Text("\(p.kind == .transit ? "DEPARTS" : "STARTS") \(s)").font(Theme.mono(12)).tracking(1.4).foregroundStyle(Theme.amber)
                 }
             }
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
-                GridRow {
-                    FieldLabel(title: "Date", value: p.dateLabel)
-                    FieldLabel(title: "Time", value: timeRange(p), mono: true)
-                }
-                GridRow {
-                    Button { if !p.venue.isEmpty { Maps.open(p.venue) } } label: {
-                        FieldLabel(title: "Venue", value: p.venue.isEmpty ? "" : p.venue + "  ›")
+            if p.kind == .transit { tripGrid(p) } else {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+                    GridRow {
+                        FieldLabel(title: "Date", value: p.dateLabel)
+                        FieldLabel(title: "Time", value: timeRange(p), mono: true)
                     }
-                    .buttonStyle(.plain)
-                    FieldLabel(title: passes.count > 1 ? "Seats" : "Seat", value: Showings.seats(passes).replacingOccurrences(of: " ", with: " · "), mono: true)
+                    GridRow {
+                        Button { if !p.venue.isEmpty { Maps.open(p.venue) } } label: {
+                            FieldLabel(title: "Venue", value: p.venue.isEmpty ? "" : p.venue + "  ›")
+                        }
+                        .buttonStyle(.plain)
+                        FieldLabel(title: passes.count > 1 ? "Seats" : "Seat", value: seatsLine, mono: true)
+                    }
                 }
             }
             Perforation().padding(.horizontal, -8).padding(.vertical, 2)
@@ -131,7 +133,7 @@ struct DetailView: View {
                     .font(Theme.sans(12)).foregroundStyle(Theme.muted)
             } else {
                 Button { door = true } label: {
-                    Label("Show at the door", systemImage: "sun.max").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
+                    Label(p.kind == .transit ? "Show to board" : "Show at the door", systemImage: "sun.max").font(Theme.sans(16, .semibold)).foregroundStyle(Theme.onAccent)
                         .frame(maxWidth: .infinity, minHeight: 52).background(Theme.accent, in: Capsule())
                 }
                 .disabled(DoorView.code(for: passes.first) == nil && passes.allSatisfy { $0.photo == nil })
@@ -146,6 +148,34 @@ struct DetailView: View {
         }
         .padding(.horizontal, 22).padding(.vertical, 22)
         .glass(in: StubShape(corner: 28, notch: 14, at: 0.5))
+    }
+
+    private var seatsLine: String { passes.map(\.seat).filter { !$0.isEmpty }.joined(separator: " · ") }
+
+    /// A trip: when and where it leaves, where it goes, the number, the platform or gate.
+    private func tripGrid(_ p: Pass) -> some View {
+        let m = p.transitMode
+        return Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+            GridRow {
+                FieldLabel(title: "Date", value: p.dateLabel)
+                FieldLabel(title: "Departs", value: p.timeLabel, mono: true)
+            }
+            GridRow {
+                Button { if !p.venue.isEmpty { Maps.open(p.venue) } } label: {
+                    FieldLabel(title: "From", value: p.venue.isEmpty ? "" : p.venue + "  ›")
+                }
+                .buttonStyle(.plain)
+                FieldLabel(title: "To", value: p.destination)
+            }
+            GridRow {
+                FieldLabel(title: "Arrives", value: p.arrival.isEmpty ? "" : p.arrival + (p.arrivalDate.map { Calendar.current.isDate($0, inSameDayAs: p.start ?? $0) ? "" : " +1" } ?? ""), mono: true)
+                FieldLabel(title: m.tripLabel, value: [p.carrier, p.trip].filter { !$0.isEmpty }.joined(separator: " "), mono: true)
+            }
+            GridRow {
+                FieldLabel(title: m.gateLabel, value: p.gate, mono: true)
+                FieldLabel(title: passes.count > 1 ? "Seats" : "Seat", value: seatsLine, mono: true)
+            }
+        }
     }
 
     private func timeRange(_ p: Pass) -> String {

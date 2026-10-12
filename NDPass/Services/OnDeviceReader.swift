@@ -42,7 +42,8 @@ enum OnDeviceReader {
         #endif
         p.rawText = lines.prefix(200).joined(separator: "\n")
         p.date = TicketDate.resolveFromModel(p.date) ?? ""
-        p.time = PassTimes.normalizeTime(p.time) ?? ""
+        p.time = PassTimes.normalizeTime(p.time, literal: p.kind == .transit) ?? ""
+        if p.kind == .transit && p.mode.isEmpty { p.mode = TransitMode.parse(p.rawText).rawValue }
         p.venue = PassTimes.titleCase(p.venue) ?? ""
         p.code = BookingCode.normalize(p.code) ?? ""
         if p.title.isEmpty { p.title = "Untitled" }
@@ -74,11 +75,11 @@ enum OnDeviceReader {
     @available(iOS 26.0, *)
     @Generable
     struct Fields {
-        @Guide(description: "What the ticket is for: movie, sports or concert")
+        @Guide(description: "What the ticket is for: movie, sports, concert, theater (plays, musicals, comedy), event (museum, festival, anything else) or transit (train, flight, bus, ferry, boarding pass)")
         var kind: String
-        @Guide(description: "For a film, its title. For a game, only the two teams as 'Team 1 vs Team 2', like 'Knicks vs Celtics'. For a concert, only the band or artist name, no tour name")
+        @Guide(description: "For a film, its title. For a game, only the two teams as 'Team 1 vs Team 2', like 'Knicks vs Celtics'. For a concert, only the band or artist name, no tour name. For a show or event, its name. For transit, the route as 'From → To'")
         var title: String
-        @Guide(description: "The cinema, stadium, arena or venue name")
+        @Guide(description: "The cinema, stadium, arena or venue name. For transit, the station or airport you board at")
         var venue: String
         @Guide(description: "The date as YYYY-MM-DD if a year is printed, otherwise MM-DD. Empty if there is no date")
         var date: String
@@ -100,14 +101,15 @@ enum OnDeviceReader {
         let session = LanguageModelSession(instructions: """
         You read text recognized from a photo or screenshot of an event ticket and fill in its fields. \
         Use only what the text says. A date with no year printed is returned as MM-DD. \
-        Showings are almost always 11 AM to midnight, so a 1-6 AM time is a misread PM.
+        Showings are almost always 11 AM to midnight, so a 1-6 AM time is a misread PM, \
+        except for trains, flights and buses, whose times are copied exactly.
         """)
         do {
             let r = try await session.respond(to: "Ticket text:\n" + lines.joined(separator: "\n"), generating: Fields.self)
             let f = r.content
             var p = Parsed()
             p.notATicket = f.notATicket
-            switch f.kind.lowercased() { case let k where k.contains("sport"): p.kind = .sports; case let k where k.contains("concert"): p.kind = .concert; default: p.kind = .movie }
+            p.kind = EventKind.parse(f.kind)
             p.title = f.title; p.venue = f.venue; p.date = f.date; p.time = f.time
             p.seat = f.seat; p.price = f.price; p.code = f.code
             return p
@@ -133,7 +135,7 @@ enum OnDeviceReader {
         if let line = lines.first(where: { $0.range(of: "(?i)\\b(seat|row|sec(tion)?)\\b", options: .regularExpression) != nil }) { p.seat = line }
         if let line = lines.first(where: { $0.range(of: "(?i)\\b(booking|confirmation|ref(erence)?|order)\\b", options: .regularExpression) != nil }),
            let r = try? Regex("[A-Z0-9-]{5,}"), let c = first(r, in: line) { p.code = c }
-        let venues = ["cinema", "theater", "theatre", "amc", "regal", "alamo", "arena", "stadium", "garden", "hall", "center", "centre", "film forum", "metrograph", "angelika", "ifc"]
+        let venues = ["cinema", "theater", "theatre", "amc", "regal", "alamo", "arena", "stadium", "garden", "hall", "center", "centre", "film forum", "metrograph", "angelika", "ifc", "station", "terminal", "airport"]
         if let v = lines.first(where: { l in venues.contains { l.lowercased().contains($0) } }) { p.venue = v }
         // The title: the longest line that isn't one of the above and isn't mostly digits.
         let taken = Set([p.venue, p.seat].filter { !$0.isEmpty })
@@ -142,6 +144,14 @@ enum OnDeviceReader {
                 && l.range(of: "(?i)(admit|ticket|seat|row|price|total|tax|date|time|screen|auditorium)", options: .regularExpression) == nil
         }.max { $0.count < $1.count } ?? ""
         if all.range(of: "(?i)\\b(vs\\.?|v\\.|@)\\b", options: .regularExpression) != nil { p.kind = .sports }
+        if all.range(of: "(?i)\\b(boarding pass|departs?|departure|platform|flight no|flight|amtrak|nj transit|lirr|metro-north|greyhound|megabus|flixbus|eurostar|ferry|coach \\d)\\b", options: .regularExpression) != nil {
+            p.kind = .transit
+            p.mode = TransitMode.parse(all).rawValue
+        } else if all.range(of: "(?i)\\b(broadway|musical|playbill|orchestra|mezzanine|balcony|comedy|opera|ballet)\\b", options: .regularExpression) != nil, p.kind == .movie {
+            p.kind = .theater
+        } else if all.range(of: "(?i)\\b(museum|exhibition|exhibit|festival|general admission|timed entry)\\b", options: .regularExpression) != nil, p.kind == .movie {
+            p.kind = .event
+        }
         return p
     }
 

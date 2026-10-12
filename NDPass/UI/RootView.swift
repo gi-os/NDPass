@@ -71,6 +71,7 @@ struct RootView: View {
             // or all lowercase get Title Case.
             guard !Demo.active, !Store.defaults.bool(forKey: "ampm") else { return }
             for p in (try? ctx.fetch(FetchDescriptor<Pass>())) ?? [] {
+                if p.kind == .transit { continue }
                 if let t = PassTimes.normalizeTime(p.time), t != p.time { p.time = t }
                 let t = PassTimes.display(p.title); if t != p.title { p.title = t }
                 let v = PassTimes.display(p.venue); if v != p.venue { p.venue = v }

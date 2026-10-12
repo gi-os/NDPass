@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 import UIKit
@@ -55,6 +56,9 @@ private struct Logo: View {
 
 private func link(_ path: String, _ a: CountdownAttributes) -> URL { URL(string: "ndpass://\(path)?group=\(a.group)")! }
 
+/// Seats worth showing (tickets with no seat drop out).
+private func shownSeats(_ a: CountdownAttributes) -> [String] { a.seats.filter { !$0.isEmpty } }
+
 private func countdown(_ s: CountdownAttributes.ContentState) -> Text {
     Text(timerInterval: Date()...max(Date(), s.start), countsDown: true)
 }
@@ -63,8 +67,9 @@ struct CountdownLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CountdownAttributes.self) { ctx in
             // Twenty minutes out the activity goes stale, which redraws it as the door card.
+            // A trip shows its boarding pass from the start.
             Group {
-                if ctx.isStale || ctx.state.start.timeIntervalSinceNow < 20 * 60 { DoorCard(ctx: ctx) } else { CountdownCard(ctx: ctx) }
+                if ctx.attributes.isTransit || ctx.isStale || ctx.state.start.timeIntervalSinceNow < 20 * 60 { DoorCard(ctx: ctx) } else { CountdownCard(ctx: ctx) }
             }
             .activityBackgroundTint(C.bg)
             .activitySystemActionForegroundColor(C.ink)
@@ -84,7 +89,7 @@ struct CountdownLiveActivity: Widget {
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(a.title) · \(a.time)").font(C.sans(14, .semibold)).foregroundStyle(C.ink).lineLimit(1)
-                            Text([a.seats.isEmpty ? nil : "Seats " + a.seats.joined(separator: " "), a.venue.isEmpty ? nil : a.venue].compactMap { $0 }.joined(separator: " · "))
+                            Text([shownSeats(a).isEmpty ? nil : "Seats " + shownSeats(a).joined(separator: " "), a.gate, a.venue.isEmpty ? nil : a.venue].compactMap { $0 }.joined(separator: " · "))
                                 .font(C.mono(11)).foregroundStyle(C.muted).lineLimit(1)
                         }
                         Spacer(minLength: 8)
@@ -124,7 +129,7 @@ private struct CountdownCard: View {
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 0) {
-                        Text("Starts in").font(C.sans(11)).foregroundStyle(C.muted)
+                        Text("\(a.verb) in").font(C.sans(11)).foregroundStyle(C.muted)
                         countdown(ctx.state).font(C.serif(36)).monospacedDigit().foregroundStyle(C.ink)
                             .multilineTextAlignment(.trailing).frame(maxWidth: 150, alignment: .trailing)
                     }
@@ -134,7 +139,8 @@ private struct CountdownCard: View {
                 HStack(alignment: .bottom) {
                     HStack(spacing: 16) {
                         field("TIME", a.time)
-                        if !a.seats.isEmpty { field(a.seats.count > 1 ? "SEATS" : "SEAT", a.seats.joined(separator: " ")) }
+                        let seats = shownSeats(a)
+                        if !seats.isEmpty { field(seats.count > 1 ? "SEATS" : "SEAT", seats.joined(separator: " ")) }
                     }
                     Spacer(minLength: 6)
                     Link(destination: link(a.seller != nil ? "seller" : "door", a)) {
@@ -159,27 +165,35 @@ private struct CountdownCard: View {
     }
 }
 
-/// Doors open: the ticket's own code, right on the Lock Screen. For rotating-code sellers,
-/// the button to their app instead.
+/// Doors open (or boarding): the ticket's own code, right on the Lock Screen. Tap a seat to
+/// swap in that ticket's code. For rotating-code sellers, the button to their app instead.
 private struct DoorCard: View {
     let ctx: ActivityViewContext<CountdownAttributes>
     var body: some View {
         let a = ctx.attributes
+        let count = a.seats.count
+        let i = min(max(ctx.state.index ?? 0, 0), max(count - 1, 0))
         ZStack {
             Backdrop(group: a.group)
             LinearGradient(colors: [C.bg.opacity(0.95), C.bg.opacity(0.75), C.bg.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("DOORS OPEN · STARTS \(a.time)").font(C.mono(10)).tracking(1.2).foregroundStyle(C.amber).lineLimit(1)
+                    Text("\(a.doorWord) · \(a.verb.uppercased()) \(a.time)").font(C.mono(10)).tracking(1.2).foregroundStyle(C.amber).lineLimit(1)
                     Logo(a: a, height: 30)
-                    HStack(spacing: 6) {
-                        ForEach(Array(a.seats.prefix(4).enumerated()), id: \.offset) { i, seat in
-                            Text(seat).font(C.mono(13)).padding(.horizontal, 9).padding(.vertical, 4)
-                                .foregroundStyle(i == 0 ? C.onAccent : C.ink)
-                                .background(i == 0 ? C.paper : C.ink.opacity(0.14), in: Capsule())
+                    if count > 1 || !(a.seats.first ?? "").isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(0..<min(count, 4), id: \.self) { j in
+                                let label = a.seats[j].isEmpty ? "#\(j + 1)" : a.seats[j]
+                                if count > 1 {
+                                    Button(intent: ShowTicketCode(group: a.group, index: j)) { pill(label, on: j == i) }.buttonStyle(.plain)
+                                } else {
+                                    pill(label, on: true)
+                                }
+                            }
                         }
                     }
-                    Text(a.venue).font(C.sans(11)).foregroundStyle(C.muted).lineLimit(1)
+                    Text([a.gate, a.venue.isEmpty ? nil : a.venue].compactMap { $0 }.joined(separator: " · "))
+                        .font(C.sans(11)).foregroundStyle(C.muted).lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 if let seller = a.seller {
@@ -187,9 +201,8 @@ private struct DoorCard: View {
                         Text("Open \(seller)").font(C.sans(14, .semibold)).foregroundStyle(C.onAccent)
                             .padding(.horizontal, 16).frame(height: 40).background(C.accent, in: Capsule())
                     }
-                } else if let code = C.image(CountdownArt.code(a.group)) {
-                    Image(uiImage: code).interpolation(.none).resizable().scaledToFit()
-                        .padding(8).frame(width: 118, height: 118).background(C.paper, in: RoundedRectangle(cornerRadius: 14))
+                } else if let code = C.image(CountdownArt.code(a.group, i)) {
+                    codeTile(code)
                 } else {
                     Link(destination: link("door", a)) {
                         Text("Open ticket").font(C.sans(14, .semibold)).foregroundStyle(C.onAccent)
@@ -199,5 +212,22 @@ private struct DoorCard: View {
             }
             .padding(16)
         }
+    }
+
+    private func pill(_ t: String, on: Bool) -> some View {
+        Text(t).font(C.mono(13)).lineLimit(1).padding(.horizontal, 9).padding(.vertical, 4)
+            .foregroundStyle(on ? C.onAccent : C.ink)
+            .background(on ? C.paper : C.ink.opacity(0.14), in: Capsule())
+    }
+
+    /// Square for 2D codes, wide and short for barcodes and PDF417.
+    @ViewBuilder private func codeTile(_ img: UIImage) -> some View {
+        let ratio = img.size.width / max(img.size.height, 1)
+        let wide = ratio > 1.6
+        let w: CGFloat = wide ? 150 : 102
+        let h: CGFloat = wide ? max(44, min(102, w / ratio)) : 102
+        Image(uiImage: img).interpolation(.none).resizable().aspectRatio(contentMode: .fit)
+            .frame(width: w, height: h)
+            .padding(8).background(C.paper, in: RoundedRectangle(cornerRadius: 14))
     }
 }

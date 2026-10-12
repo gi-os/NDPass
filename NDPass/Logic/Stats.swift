@@ -37,7 +37,9 @@ struct Stats {
 
     static func price(_ s: String) -> Double { Double(s.filter { "0123456789.".contains($0) }) ?? 0 }
 
-    init(_ passes: [Pass], now: Date = Date(), calendar: Calendar = .current) {
+    init(_ all: [Pass], now: Date = Date(), calendar: Calendar = .current) {
+        // Trips are how you get there, not somewhere you went: they stay out of the stats.
+        let passes = all.filter { $0.kind != .transit }
         let cal = calendar
         let groups = Dictionary(grouping: passes, by: \.group).values.map { $0 }
         let shows = groups.compactMap { g -> (Pass, Date)? in

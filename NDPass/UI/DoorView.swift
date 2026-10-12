@@ -76,6 +76,10 @@ struct DoorView: View {
         if !p.venue.isEmpty { parts.append(p.venue) }
         if let s = p.start { parts.append(s.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) }
         if !p.time.isEmpty { parts.append(p.time) }
+        if p.kind == .transit {
+            if !p.trip.isEmpty { parts.append([p.carrier, p.trip].filter { !$0.isEmpty }.joined(separator: " ")) }
+            if !p.gate.isEmpty { parts.append("\(p.transitMode.gateLabel) \(p.gate)") }
+        }
         return parts.joined(separator: " · ")
     }
 }
@@ -95,7 +99,7 @@ struct CountdownView: View {
                     CoverArt(pass: p, preferBackdrop: g.size.width > g.size.height)
                     LinearGradient(colors: [Theme.bg.opacity(0.15), Theme.bg.opacity(0.85)], startPoint: .top, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Starts in").font(Theme.sans(18)).foregroundStyle(Theme.ink.opacity(0.85))
+                        Text(p?.kind == .transit ? "Departs in" : "Starts in").font(Theme.sans(18)).foregroundStyle(Theme.ink.opacity(0.85))
                         TimelineView(.periodic(from: .now, by: 1)) { c in
                             Text(Countdown.clock(to: p?.start, now: c.date)).font(Theme.serif(min(150, g.size.width * 0.3))).monospacedDigit()
                                 .foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.5)
@@ -117,7 +121,7 @@ struct CountdownView: View {
                             box("Time", p?.timeLabel ?? "")
                         }
                         Button { door = true } label: {
-                            Text("Show at the door").font(Theme.sans(18, .semibold)).foregroundStyle(Theme.onAccent)
+                            Text(p?.kind == .transit ? "Show to board" : "Show at the door").font(Theme.sans(18, .semibold)).foregroundStyle(Theme.onAccent)
                                 .frame(maxWidth: .infinity, minHeight: 58).background(Theme.accent, in: Capsule())
                         }
                         if let v = p?.venue, !v.isEmpty {

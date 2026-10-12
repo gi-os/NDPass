@@ -105,7 +105,7 @@ struct StatsView: View {
         return (far.name, text)
     }
 
-    private func label(_ k: EventKind) -> String { k == .movie ? "Films" : k == .sports ? "Games" : "Concerts" }
+    private func label(_ k: EventKind) -> String { k.plural }
     private func money(_ v: Double) -> String { v.formatted(.currency(code: Locale.current.currency?.identifier ?? "USD").precision(.fractionLength(0))) }
 
     private func section(_ t: String) -> some View {

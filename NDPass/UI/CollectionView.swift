@@ -10,14 +10,20 @@ struct CollectionView: View {
         Array(Set(passes.compactMap { $0.date.count >= 4 ? String($0.date.prefix(4)) : nil })).sorted(by: >)
     }
 
+    /// One chip per kind you actually have, besides films.
+    private var kindFilters: [String] {
+        let have = Set(passes.map(\.kind))
+        return EventKind.allCases.filter { $0 != .movie && have.contains($0) }.map(\.plural)
+    }
+
     private var groups: [[Pass]] {
         Showings.groups(passes, archived: nil).filter { g in
             let p = g[0]
             switch filter {
             case "All": return true
-            case "Games": return p.kind == .sports
-            case "Concerts": return p.kind == .concert
-            default: return p.date.hasPrefix(filter)
+            default:
+                if let k = EventKind.allCases.first(where: { $0.plural == filter }) { return p.kind == k }
+                return p.date.hasPrefix(filter)
             }
         }
         .sorted { $0[0].sortDate > $1[0].sortDate }
@@ -34,7 +40,7 @@ struct CollectionView: View {
                     }
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {
-                            ForEach(["All"] + years + ["Games", "Concerts"], id: \.self) { f in
+                            ForEach(["All"] + years + kindFilters, id: \.self) { f in
                                 Button { withAnimation(.snappy) { filter = f } } label: {
                                     Text(f).font(Theme.sans(14, .medium)).padding(.horizontal, 16).frame(height: 36)
                                         .foregroundStyle(filter == f ? Theme.paperInk : Theme.ink)

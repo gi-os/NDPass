@@ -9,8 +9,14 @@ enum Reminders {
     static func schedule(_ p: Pass) {
         cancel(p.id)
         guard let start = p.start, start > Date() else { return }
-        let times: [(String, Date, String)] = [
-            ("3h", start.addingTimeInterval(-3 * 3600), "In three hours at \(p.venue.isEmpty ? "the venue" : p.venue)"),
+        let transit = p.kind == .transit
+        let where_ = p.venue.isEmpty ? (transit ? "your station" : "the venue") : p.venue
+        let detail = [p.gate.isEmpty ? nil : "\(p.transitMode.gateLabel) \(p.gate)", p.seat.isEmpty ? nil : "Seat \(p.seat)"].compactMap { $0 }.joined(separator: " · ")
+        let times: [(String, Date, String)] = transit ? [
+            ("3h", start.addingTimeInterval(-3 * 3600), "Departs in three hours from \(where_)"),
+            ("30m", start.addingTimeInterval(-1800), "Departs in 30 minutes." + (detail.isEmpty ? "" : " " + detail))
+        ] : [
+            ("3h", start.addingTimeInterval(-3 * 3600), "In three hours at \(where_)"),
             ("30m", start.addingTimeInterval(-1800), "In 30 minutes. Seat \(p.seat.isEmpty ? "on the ticket" : p.seat)")
         ]
         var cal = Calendar.current; cal.timeZone = .current

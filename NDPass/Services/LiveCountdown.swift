@@ -2,13 +2,15 @@ import ActivityKit
 import SwiftUI
 import UIKit
 
-/// The Lock Screen and Dynamic Island countdown, from 30 minutes before a showing. On iOS 26
+/// The Lock Screen and Dynamic Island countdown, from 30 minutes before a showing (90 before a flight). On iOS 26
 /// it's scheduled ahead and starts by itself; before that it starts when NDPass is opened in
 /// the last 30 minutes (the 30-minute reminder brings you there). Twenty minutes out it goes
 /// stale and redraws as the door card; ten minutes after the start it ends.
 @MainActor
 enum LiveCountdown {
     static let lead: TimeInterval = 30 * 60
+    /// Flights board well before they leave; everything else starts the countdown at 30 min.
+    static func leadTime(_ p: Pass) -> TimeInterval { p.kind == .transit && p.transitMode == .flight ? 90 * 60 : lead }
     static let linger: TimeInterval = 10 * 60
     static let ahead = 3            // showings scheduled at once (iOS 26)
 
@@ -23,7 +25,7 @@ enum LiveCountdown {
         if #available(iOS 26.0, *) {
             wanted = Array(upcoming.prefix(ahead))
         } else {
-            wanted = upcoming.filter { g in g[0].start.map { $0 - lead <= now } ?? false }.prefix(1).map { $0 }
+            wanted = upcoming.filter { g in g[0].start.map { $0 - leadTime(g[0]) <= now } ?? false }.prefix(1).map { $0 }
         }
         let keys = Set(wanted.map { $0[0].group.uuidString })
         for a in Activity<CountdownAttributes>.activities {
@@ -35,15 +37,22 @@ enum LiveCountdown {
         for g in wanted {
             guard let p = g.first, let start = p.start else { continue }
             let key = p.group.uuidString
-            if Activity<CountdownAttributes>.activities.contains(where: { $0.attributes.group == key && $0.activityState != .ended && $0.activityState != .dismissed }) { continue }
+            if let running = Activity<CountdownAttributes>.activities.first(where: { $0.attributes.group == key && $0.activityState != .ended && $0.activityState != .dismissed }) {
+                // Started by an older build (its codes were too big to draw): redo the
+                // pictures and nudge it to redraw.
+                if !artIsCurrent(key) { await saveArt(g, key: key); await running.update(running.content) }
+                continue
+            }
             await saveArt(g, key: key)
-            let content = ActivityContent(state: CountdownAttributes.ContentState(start: start),
-                                          staleDate: start - 20 * 60, relevanceScore: 100)
+            let transit = p.kind == .transit
+            // Trips show the boarding pass for the whole window, so they never go stale early.
+            let content = ActivityContent(state: CountdownAttributes.ContentState(start: start, index: 0),
+                                          staleDate: transit ? start + linger : start - 20 * 60, relevanceScore: 100)
             let attrs = attributes(g, start: start)
-            let begin = start - lead
+            let begin = start - leadTime(p)
             if #available(iOS 26.0, *), begin > now.addingTimeInterval(60) {
                 let alert = AlertConfiguration(title: LocalizedStringResource(stringLiteral: p.title),
-                                               body: LocalizedStringResource(stringLiteral: "Starts in 30 minutes" + (p.venue.isEmpty ? "" : " at \(p.venue)")),
+                                               body: LocalizedStringResource(stringLiteral: (transit ? "Departs in \(Int(leadTime(p) / 60)) minutes" : "Starts in 30 minutes") + (p.venue.isEmpty ? "" : (transit ? " from " : " at ") + p.venue)),
                                                sound: .default)
                 _ = try? Activity.request(attributes: attrs, content: content, pushType: nil, style: .standard, alertConfiguration: alert, start: begin)
             } else if begin <= now {
@@ -57,12 +66,24 @@ enum LiveCountdown {
         let h = Calendar.current.component(.hour, from: start)
         let day = Calendar.current.isDateInToday(start) ? (h >= 17 ? "TONIGHT" : "TODAY")
             : Calendar.current.isDateInTomorrow(start) ? "TOMORROW" : start.formatted(.dateTime.weekday(.abbreviated)).uppercased()
+        let transit = p.kind == .transit
+        let gate = p.gate.isEmpty ? nil : (p.gate.first?.isNumber == true || p.gate.count <= 3 ? "\(p.transitMode.gateLabel) \(p.gate)" : p.gate)
+        let place = transit ? p.kindLine : p.venue.uppercased()
         return CountdownAttributes(
             group: p.group.uuidString, title: p.title, venue: p.venue, time: p.time,
-            seats: g.map(\.seat).filter { !$0.isEmpty },
-            eyebrow: p.venue.isEmpty ? day : "\(day) · \(p.venue.uppercased())",
-            windowStart: start - lead,
-            seller: (p.seller?.rotatingCode == true) ? p.seller?.name : nil)
+            seats: g.map(\.seat),
+            eyebrow: place.isEmpty ? day : "\(day) · \(place)",
+            windowStart: start - leadTime(p),
+            seller: (p.seller?.rotatingCode == true) ? p.seller?.name : nil,
+            kind: p.kind.rawValue,
+            gate: gate,
+            destination: p.destination.isEmpty ? nil : p.destination)
+    }
+
+    /// Bumped whenever the saved pictures change shape. v2: Lock Screen-sized codes, one per ticket.
+    private static let artVersion = "v2"
+    private static func artIsCurrent(_ key: String) -> Bool {
+        CountdownArt.folder(key).map { FileManager.default.fileExists(atPath: $0.appendingPathComponent(artVersion).path) } ?? true
     }
 
     /// The activity can't download anything, so the pictures go into the App Group first,
@@ -82,7 +103,14 @@ enum LiveCountdown {
             if let png = logo?.pngData(), let u = CountdownArt.logo(key) { try? png.write(to: u) }
         }
         if let png = island(backdrop: backdrop, logo: logo, title: p.title).pngData(), let u = CountdownArt.island(key) { try? png.write(to: u) }
-        if p.seller?.rotatingCode != true, let code = codeImage(p), let png = code.pngData(), let u = CountdownArt.code(key) { try? png.write(to: u) }
+        // One code per ticket, small enough for the Lock Screen (see Barcodes.render).
+        if p.seller?.rotatingCode != true {
+            for (i, t) in g.enumerated() {
+                guard let u = CountdownArt.code(key, i) else { continue }
+                if let png = codeImage(t)?.pngData() { try? png.write(to: u) } else { try? FileManager.default.removeItem(at: u) }
+            }
+        }
+        FileManager.default.createFile(atPath: dir.appendingPathComponent(artVersion).path, contents: Data())
     }
 
     /// 64×40 points at 3x: the backdrop darkened a little with the film's logo (or title) on it.
@@ -112,8 +140,11 @@ enum LiveCountdown {
         }
     }
 
+    /// The code tile is ~100 pt on the Lock Screen: 3x that, and never more than the card.
+    static let codePixels: CGFloat = 300
+
     private static func codeImage(_ p: Pass) -> UIImage? {
-        if let s = p.scannedCode, let f = p.scannedFormat, let img = Barcodes.render(s, as: f) { return img }
+        if let s = p.scannedCode, let f = p.scannedFormat, let img = Barcodes.render(s, as: f, fit: codePixels) { return img }
         return nil
     }
 

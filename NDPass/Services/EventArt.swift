@@ -7,10 +7,14 @@ enum EventArt {
     /// league spells them, the artist as they're billed.
     static func decorate(_ p: Pass) async {
         guard p.kind != .movie else { return }
+        if p.kind == .transit {
+            p.art = symbolCard(p.transitMode.symbol, background: UIColor(red: 0.05, green: 0.08, blue: 0.14, alpha: 1)).pngData()
+            return
+        }
         let (data, name) = await artAndName(for: p.kind, title: p.title, context: p.venue)
         if let data { p.art = data }
         if let name, !name.isEmpty { p.title = name }
-        else { p.title = PassTimes.display(p.title) }
+        else if p.kind != .transit { p.title = PassTimes.display(p.title) }
     }
 
     /// Draw a game from two teams picked by hand.
@@ -33,6 +37,9 @@ enum EventArt {
     static func artAndName(for kind: EventKind, title: String, context: String) async -> (Data?, String?) {
         switch kind {
         case .movie: return (nil, nil)
+        case .theater: return (symbolCard("theatermasks.fill", background: UIColor(red: 0.18, green: 0.04, blue: 0.06, alpha: 1)).pngData(), nil)
+        case .event: return (symbolCard("ticket.fill", background: UIColor(red: 0.06, green: 0.12, blue: 0.10, alpha: 1)).pngData(), nil)
+        case .transit: return (symbolCard("tram.fill", background: UIColor(red: 0.05, green: 0.08, blue: 0.14, alpha: 1)).pngData(), nil)
         case .concert:
             // The artist's photo, full frame.
             if let hit = await Artists.photo(for: title) { return (hit.image.jpegData(compressionQuality: 0.88), hit.name) }
@@ -148,13 +155,22 @@ enum EventArt {
     }
 
     static func musicCard() -> UIImage {
+        symbolCard("music.note", background: UIColor(red: 0.08, green: 0.06, blue: 0.14, alpha: 1))
+    }
+
+    /// A dark card with one big symbol: shows, events and trips, which have no poster to find.
+    static func symbolCard(_ symbol: String, background: UIColor) -> UIImage {
         let size = CGSize(width: 600, height: 900)
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let c = ctx.cgContext
-            UIColor(red: 0.08, green: 0.06, blue: 0.14, alpha: 1).setFill(); c.fill(CGRect(origin: .zero, size: size))
-            let cfg = UIImage.SymbolConfiguration(pointSize: 300, weight: .bold)
-            if let note = UIImage(systemName: "music.note", withConfiguration: cfg)?.withTintColor(UIColor(red: 0.91, green: 0.84, blue: 0.72, alpha: 1), renderingMode: .alwaysOriginal) {
-                note.draw(in: CGRect(x: 150, y: 250, width: 300, height: 400))
+            let top = background, bottom = background.blended(with: .black, 0.5)
+            let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [top.cgColor, bottom.cgColor] as CFArray, locations: [0, 1])!
+            c.drawLinearGradient(g, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+            let cfg = UIImage.SymbolConfiguration(pointSize: 260, weight: .bold)
+            if let img = UIImage(systemName: symbol, withConfiguration: cfg)?.withTintColor(UIColor(red: 0.91, green: 0.84, blue: 0.72, alpha: 0.9), renderingMode: .alwaysOriginal) {
+                let s = min(320 / img.size.width, 320 / img.size.height)
+                let w = img.size.width * s, h = img.size.height * s
+                img.draw(in: CGRect(x: (size.width - w) / 2, y: (size.height - h) / 2, width: w, height: h))
             }
         }
     }

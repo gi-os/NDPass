@@ -40,11 +40,7 @@ final class Importer: ObservableObject {
 
         let crop = parsed.box.flatMap { Self.crop(upright, to: $0) }
         if parsed.seller == nil { parsed.seller = Seller.detect(text: parsed.rawText + " " + parsed.title + " " + parsed.venue, url: sourceURL) }
-        let p = Pass(title: PassTimes.display(EventTitle.clean(parsed.title, kind: parsed.kind)))
-        p.kind = parsed.kind
-        p.venue = PassTimes.display(parsed.venue)
-        p.date = PassTimes.tbd(parsed.date) ? "" : parsed.date
-        p.time = PassTimes.tbd(parsed.time) ? "" : (PassTimes.normalizeTime(parsed.time) ?? parsed.time)
+        let p = Self.pass(from: parsed)
         p.seat = parsed.seat
         p.price = parsed.price
         p.bookingCode = parsed.code
@@ -64,6 +60,27 @@ final class Importer: ObservableObject {
         } else { step("No readable code in the photo.") }
 
         await decorate(p)
+        return p
+    }
+
+    /// The fields every reader fills, onto a new Pass. Trips keep their station codes and
+    /// their early-morning times as printed.
+    static func pass(from parsed: Parsed) -> Pass {
+        let transit = parsed.kind == .transit
+        let title = EventTitle.clean(parsed.title, kind: parsed.kind)
+        let p = Pass(title: transit ? title : PassTimes.display(title))
+        p.kind = parsed.kind
+        p.venue = transit ? Transit.place(parsed.venue) : PassTimes.display(parsed.venue)
+        p.date = PassTimes.tbd(parsed.date) ? "" : parsed.date
+        p.time = PassTimes.tbd(parsed.time) ? "" : (PassTimes.normalizeTime(parsed.time, literal: transit) ?? parsed.time)
+        if transit {
+            p.transitMode = TransitMode(rawValue: parsed.mode.lowercased()) ?? TransitMode.parse(parsed.mode + " " + parsed.carrier)
+            p.carrier = PassTimes.display(parsed.carrier)
+            p.trip = parsed.trip
+            p.destination = parsed.destination
+            p.arrival = PassTimes.normalizeTime(parsed.arrival, literal: true) ?? ""
+            p.gate = parsed.gate
+        }
         return p
     }
 
@@ -98,8 +115,7 @@ final class Importer: ObservableObject {
         var parsed = await OnDeviceReader.read(lines: body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
         if parsed.notATicket || parsed.title == "Untitled" && parsed.date.isEmpty { lastError = "Couldn't find a ticket in that."; step("No ticket found."); return nil }
         parsed.seller = Seller.detect(text: body, url: sourceURL)
-        let p = Pass(title: PassTimes.display(EventTitle.clean(parsed.title, kind: parsed.kind)))
-        p.kind = parsed.kind; p.venue = PassTimes.display(parsed.venue); p.date = PassTimes.tbd(parsed.date) ? "" : parsed.date; p.time = PassTimes.tbd(parsed.time) ? "" : (PassTimes.normalizeTime(parsed.time) ?? parsed.time)
+        let p = Self.pass(from: parsed)
         p.seat = parsed.seat; p.price = parsed.price; p.bookingCode = parsed.code; p.confidence = parsed.confidence
         p.sourceURL = sourceURL
         p.seller = parsed.seller
@@ -118,7 +134,7 @@ final class Importer: ObservableObject {
         return s
     }
 
-    /// Poster and runtime for a film, drawn art for a game or a concert.
+    /// Poster and runtime for a film, drawn art for everything else.
     func decorate(_ p: Pass) async {
         if p.kind == .movie, let key = Keys.get(.tmdb) {
             step("Finding the poster…")
@@ -132,7 +148,11 @@ final class Importer: ObservableObject {
                 await TMDb.art(for: p, key: key)
             }
         } else if p.kind != .movie {
-            step(p.kind == .concert ? "Finding the artist…" : "Finding the teams…")
+            switch p.kind {
+            case .concert: step("Finding the artist…")
+            case .sports: step("Finding the teams…")
+            default: step("Drawing the \(p.kind.name.lowercased())'s art…")
+            }
             await EventArt.decorate(p)
         }
     }

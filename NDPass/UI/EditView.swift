@@ -14,22 +14,38 @@ struct EditView: View {
     @State private var code = ""
     @State private var kind: EventKind = .movie
     @State private var seller: Seller?
+    @State private var mode: TransitMode = .train
+    @State private var carrier = ""
+    @State private var trip = ""
+    @State private var destination = ""
+    @State private var arrival = ""
+    @State private var gate = ""
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Kind", selection: $kind) { ForEach(EventKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
-                    TextField("Title", text: $title)
-                    TextField("Venue", text: $venue)
+                    Picker("Kind", selection: $kind) { ForEach(EventKind.allCases, id: \.self) { Label($0.name, systemImage: $0.symbol).tag($0) } }
+                    TextField(kind == .transit ? "Route (New York → Boston)" : "Title", text: $title)
+                    TextField(kind == .transit ? "From (station or airport)" : "Venue", text: $venue)
                     Picker("Sold by", selection: $seller) {
                         Text("—").tag(Seller?.none)
                         ForEach(Seller.allCases, id: \.self) { Text($0.name).tag(Seller?.some($0)) }
                     }
                 }
+                if kind == .transit {
+                    Section("Trip") {
+                        Picker("Mode", selection: $mode) { ForEach(TransitMode.allCases, id: \.self) { Label($0.name, systemImage: $0.symbol).tag($0) } }
+                        TextField("To (station or airport)", text: $destination)
+                        TextField("Carrier (Amtrak, United…)", text: $carrier)
+                        TextField("\(mode.tripLabel) number", text: $trip).autocorrectionDisabled().textInputAutocapitalization(.characters)
+                        TextField(mode.gateLabel, text: $gate).autocorrectionDisabled().textInputAutocapitalization(.characters)
+                    }
+                }
                 Section {
                     DateField(text: $date)
-                    TimeField(text: $time)
+                    TimeField(label: kind == .transit ? "Departs" : "Time", text: $time)
+                    if kind == .transit { TimeField(label: "Arrives", text: $arrival) }
                 }
                 Section {
                     TextField("Seat", text: $seat)
@@ -46,6 +62,8 @@ struct EditView: View {
             .onAppear {
                 title = pass.title; venue = pass.venue; date = pass.date; time = pass.time
                 seat = pass.seat; price = pass.price; code = pass.bookingCode; kind = pass.kind; seller = pass.seller
+                mode = pass.transitMode; carrier = pass.carrier; trip = pass.trip
+                destination = pass.destination; arrival = pass.arrival; gate = pass.gate
             }
         }
     }
@@ -54,12 +72,21 @@ struct EditView: View {
         pass.title = title.trimmingCharacters(in: .whitespaces)
         pass.venue = venue.trimmingCharacters(in: .whitespaces)
         pass.date = TicketDate.resolveTyped(date) ?? ""
-        pass.time = PassTimes.normalizeTime(time) ?? ""
+        pass.time = PassTimes.normalizeTime(time, literal: kind == .transit) ?? ""
         pass.seat = seat
         pass.price = price
         pass.bookingCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         pass.kind = kind
         pass.seller = seller
+        if kind == .transit {
+            pass.transitMode = mode
+            pass.carrier = carrier.trimmingCharacters(in: .whitespaces)
+            pass.trip = trip.trimmingCharacters(in: .whitespaces)
+            pass.destination = destination.trimmingCharacters(in: .whitespaces)
+            pass.arrival = PassTimes.normalizeTime(arrival, literal: true) ?? ""
+            pass.gate = gate.trimmingCharacters(in: .whitespaces)
+            if pass.title.isEmpty || pass.title == "Untitled", let r = Transit.route(pass.venue, pass.destination) { pass.title = r }
+        }
         try? ctx.save()
         Reminders.schedule(pass)
         dismiss()

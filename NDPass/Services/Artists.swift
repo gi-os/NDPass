@@ -130,6 +130,8 @@ enum EventTitle {
         case .concert:
             let h = Artists.headliner(title)
             return h.isEmpty ? title : h
+        case .theater, .event, .transit:
+            return title
         }
     }
 }

@@ -45,23 +45,37 @@ enum Barcodes {
         return CIContext().createCGImage(out, from: out.extent)
     }
 
-    /// A crisp code image. Nil for symbologies Core Image cannot draw (Data Matrix).
-    static func render(_ text: String, as sym: Symbology) -> UIImage? {
+    /// A crisp code image, at most `fit` pixels on its long side: whole pixels per module,
+    /// black on opaque white. Nil for symbologies Core Image cannot draw (Data Matrix).
+    /// The Lock Screen asks for ~300 px; a Live Activity drops any image bigger than the
+    /// activity itself and shows a grey box instead.
+    static func render(_ text: String, as sym: Symbology, fit: CGFloat = 900) -> UIImage? {
         let data = Data(text.utf8)
         var out: CIImage?
         switch sym {
         case .qr: let f = CIFilter.qrCodeGenerator(); f.message = data; f.correctionLevel = "M"; out = f.outputImage
         case .code128:
-            guard let ascii = text.data(using: .ascii) else { return render(text, as: .qr) }
+            guard let ascii = text.data(using: .ascii) else { return render(text, as: .qr, fit: fit) }
             let f = CIFilter.code128BarcodeGenerator(); f.message = ascii; f.quietSpace = 10; out = f.outputImage
         case .pdf417: let f = CIFilter.pdf417BarcodeGenerator(); f.message = data; out = f.outputImage
         case .aztec: let f = CIFilter.aztecCodeGenerator(); f.message = data; out = f.outputImage
         case .dataMatrix, .other: return nil
         }
-        guard let img = out else { return nil }
-        let scale = max(1, (900 / img.extent.width).rounded(.down))
-        let big = img.samplingNearest().transformed(by: CGAffineTransform(scaleX: scale, y: scale * (sym == .code128 ? 4 : 1)))
-        guard let cg = CIContext().createCGImage(big, from: big.extent) else { return nil }
-        return UIImage(cgImage: cg)
+        // One pixel per module first, then scaled up by whole pixels with no smoothing.
+        guard let img = out, let small = CIContext().createCGImage(img, from: img.extent.integral) else { return nil }
+        let w = CGFloat(small.width), h = CGFloat(small.height)
+        let k = max(1, (fit / max(w, h)).rounded(.down))
+        // 1D bars are drawn short; stretch them taller, still inside `fit`.
+        let ky = sym == .code128 ? max(k, min(k * 4, (fit * 0.45 / h).rounded(.down))) : k
+        let size = CGSize(width: w * k, height: h * ky)
+        let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1; fmt.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: fmt).image { ctx in
+            let c = ctx.cgContext
+            UIColor.white.setFill(); c.fill(CGRect(origin: .zero, size: size))
+            c.interpolationQuality = .none
+            // Core Graphics draws bottom-up; flip so the code isn't mirrored.
+            c.translateBy(x: 0, y: size.height); c.scaleBy(x: 1, y: -1)
+            c.draw(small, in: CGRect(origin: .zero, size: size))
+        }
     }
 }

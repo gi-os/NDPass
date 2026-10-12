@@ -14,6 +14,13 @@ struct Parsed {
     var notATicket = false
     var seller: Seller?
     var rawText = ""
+    // Transit
+    var mode = ""
+    var carrier = ""
+    var trip = ""
+    var destination = ""
+    var arrival = ""
+    var gate = ""
 }
 
 enum ParseError: LocalizedError {
@@ -35,18 +42,27 @@ enum Parser {
     static func prompt(today: Date) -> String {
         let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd"
         return """
-        Analyze this image of an event ticket (movie, sports game, or concert) and extract
-        the following. Return ONLY valid JSON, no markdown, no backticks, no explanation.
+        Analyze this image of a ticket and extract the following. It may be for a film, a game,
+        a concert, a play or other show, any other admission (museum, festival, tour), or a
+        trip (train, flight, bus or ferry ticket, or a boarding pass).
+        Return ONLY valid JSON, no markdown, no backticks, no explanation.
         {
-          "kind": "movie" | "sports" | "concert",
-          "movieTitle": "film: the film title; game: only the two teams as 'Team 1 vs Team 2' (e.g. 'Knicks vs Celtics'); concert: only the band or artist name, no tour name",
-          "theater": "theater/cinema, stadium/arena, or venue name",
+          "kind": "movie" | "sports" | "concert" | "theater" | "event" | "transit",
+          "movieTitle": "film: the film title; game: only the two teams as 'Team 1 vs Team 2' (e.g. 'Knicks vs Celtics'); concert: only the band or artist name, no tour name; theater: the show's name; event: the exhibition, festival or event name; transit: null",
+          "theater": "theater/cinema, stadium/arena or venue name; transit: the station, airport or terminal you board at",
           "date": "YYYY-MM-DD if a year is printed on the ticket, otherwise MM-DD",
-          "time": "h:mm AM/PM",
-          "seat": "seat/row info or null",
+          "time": "h:mm AM/PM (transit: the departure time)",
+          "seat": "seat/row info or null (transit: car and seat, e.g. 'Car 5 Seat 12A'; flight: the seat, e.g. '14C')",
           "price": "price with $ or null",
           "code": "booking/confirmation reference, exactly as printed, or null",
           "seller": "who sold it if shown (ticketmaster, livenation, dice, axs, seatgeek, eventbrite, stubhub, fandango, amc, regal, atom, alamo, eventim, universe) or null",
+          "mode": "transit only: train | flight | bus | ferry, else null",
+          "carrier": "transit only: the railway, airline or bus line (e.g. 'Amtrak', 'United'), else null",
+          "trip": "transit only: the train, flight or bus number as printed (e.g. '2151', 'UA 123'), else null",
+          "from": "transit only: departure station or airport (a short name or code), else null",
+          "to": "transit only: arrival station or airport (a short name or code), else null",
+          "arrival": "transit only: arrival time h:mm AM/PM, else null",
+          "gate": "transit only: track, platform or gate, else null",
           "confidence": 0.95,
           "box": [x0, y0, x1, y1]
         }
@@ -68,9 +84,13 @@ enum Parser {
         Rules: time is 12-hour with AM/PM.
         Read AM/PM carefully from the ticket. Showings and events are almost always
         matinee or evening (11:00 AM - 11:59 PM); a 1-6 AM start time is almost
-        certainly a misread PM. confidence 0-1 over all fields.
+        certainly a misread PM. That rule does NOT apply to transit: trains and flights
+        leave early in the morning, so copy their times exactly (24-hour times converted
+        as written). confidence 0-1 over all fields.
         "kind" is your best read of what the ticket admits you to: "movie" for a film
-        screening, "sports" for a game or match, "concert" for live music or a show.
+        screening, "sports" for a game or match, "concert" for live music, "theater" for
+        a play, musical, opera, ballet, dance or comedy show, "event" for any other
+        admission (museum, exhibition, festival, tour, conference), "transit" for travel.
         If the image is NOT a ticket at all, return {"error":"not_a_ticket","confidence":0}.
         """
     }
@@ -89,7 +109,7 @@ enum Parser {
         guard let jpeg = jpegForModel(image) else { throw ParseError.unreadable }
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 500,
+            "max_tokens": 700,
             "messages": [["role": "user", "content": [
                 ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
                 ["type": "text", "text": prompt(today: Date())]
@@ -139,16 +159,24 @@ enum Parser {
             let s = "\(v)".trimmingCharacters(in: .whitespacesAndNewlines)
             return s.lowercased() == "null" ? "" : s
         }
+        p.kind = EventKind.parse(str("kind"))
+        let transit = p.kind == .transit
         p.title = str("movieTitle").isEmpty ? "Untitled" : str("movieTitle")
         p.venue = PassTimes.titleCase(str("theater")) ?? ""
         p.date = TicketDate.resolveFromModel(str("date")) ?? ""
-        p.time = PassTimes.normalizeTime(str("time")) ?? ""
+        p.time = PassTimes.normalizeTime(str("time"), literal: transit) ?? ""
+        if transit {
+            p.mode = str("mode"); p.carrier = str("carrier"); p.trip = str("trip"); p.gate = str("gate")
+            p.destination = Transit.place(str("to"))
+            p.arrival = PassTimes.normalizeTime(str("arrival"), literal: true) ?? ""
+            if p.venue.isEmpty { p.venue = Transit.place(str("from")) }
+            if let r = Transit.route(str("from").isEmpty ? p.venue : str("from"), str("to")) { p.title = r }
+        }
         p.seat = str("seat")
         p.price = str("price")
         p.code = BookingCode.normalize(str("code")) ?? ""
         p.confidence = (j["confidence"] as? NSNumber)?.doubleValue ?? 0
         p.seller = Seller(rawValue: str("seller").lowercased().replacingOccurrences(of: " ", with: ""))
-        switch str("kind").lowercased() { case "sports": p.kind = .sports; case "concert": p.kind = .concert; default: p.kind = .movie }
         if let box = j["box"] as? [Any], box.count == 4 {
             let v = box.compactMap { ($0 as? NSNumber)?.doubleValue }
             if v.count == 4, v[2] > v[0], v[3] > v[1] {
