@@ -182,8 +182,9 @@ enum CalendarSync {
             e.calendar = calendar
             _ = fill(e, plan)
             e.availability = .busy
+            // Committed now: an event's identifier is only final once it's saved for good.
             do {
-                try store.save(e, span: .thisEvent, commit: false)
+                try store.save(e, span: .thisEvent, commit: true)
                 if let id = e.eventIdentifier { map[plan.key] = id }
             } catch {}
         }
@@ -215,9 +216,13 @@ enum CalendarSync {
         return events.contains { e in
             let near = p.allDay || e.isAllDay ? Calendar.current.isDate(e.startDate, inSameDayAs: p.start) : abs(e.startDate.timeIntervalSince(p.start)) <= 2 * 3600
             guard near else { return false }
-            let t = words((e.title ?? "") + " " + (e.notes ?? ""))
+            let t = words(e.title ?? "")
+            let sameName = !p.titleWords.isDisjoint(with: t)
+            // NDPass's own event for another showing at the same venue (a double feature)
+            // doesn't count; only one with this showing's name does.
+            if e.notes?.contains("Added by NDPass") == true { return sameName }
             let loc = words(e.location ?? "")
-            return !p.titleWords.isDisjoint(with: t) || (!p.venueWords.isEmpty && !p.venueWords.isDisjoint(with: loc.union(t)))
+            return sameName || (!p.venueWords.isEmpty && !p.venueWords.isDisjoint(with: loc.union(t)))
         }
     }
 }

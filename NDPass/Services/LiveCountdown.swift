@@ -33,6 +33,8 @@ enum LiveCountdown {
 
     /// Showings you swiped off the Lock Screen: not brought back.
     private static let dismissedKey = "liveDismissed"
+    /// Activities NDPass ended itself (a ticket changed): not mistaken for a swipe.
+    private static let endedKey = "liveEndedByUs"
 
     private static func refreshOnce(_ passes: [Pass]) async {
         let now = Date()
@@ -53,26 +55,32 @@ enum LiveCountdown {
             return (g[0].group.uuidString, (attributes(g, start: start), start))
         }, uniquingKeysWith: { a, _ in a })
 
-        var endedHere = Set<String>()
+        var endedByUs = Set(d.stringArray(forKey: endedKey) ?? [])
+        func end(_ a: Activity<CountdownAttributes>) async {
+            endedByUs.insert(a.id)
+            await a.end(nil, dismissalPolicy: .immediate)
+        }
         for a in Activity<CountdownAttributes>.activities {
             let key = a.attributes.group
             guard let (attrs, start) = plans[key] else {
-                if a.activityState != .ended && a.activityState != .dismissed { await a.end(nil, dismissalPolicy: .immediate) }
+                if a.activityState != .ended && a.activityState != .dismissed { await end(a) }
                 continue
             }
-            if a.activityState == .dismissed {
-                // Gone from the Lock Screen without us ending it: you swiped it away.
-                if !endedHere.contains(key) { dismissed.insert(key) }
+            if a.activityState == .dismissed || a.activityState == .ended {
+                // Gone from the Lock Screen without NDPass ending it: you swiped it away.
+                if !endedByUs.contains(a.id) { dismissed.insert(key) }
                 continue
             }
             // A changed time, title, venue or seat: start again with the new details.
             if a.content.state.start != start || a.attributes.title != attrs.title || a.attributes.venue != attrs.venue
                 || a.attributes.seats != attrs.seats || a.attributes.place != attrs.place || a.attributes.gate != attrs.gate {
-                await a.end(nil, dismissalPolicy: .immediate)
-                endedHere.insert(key)
+                await end(a)
             }
         }
         d.set(Array(dismissed), forKey: dismissedKey)
+        // Only remember ids of activities that still exist.
+        let ids = Set(Activity<CountdownAttributes>.activities.map(\.id))
+        d.set(Array(endedByUs.intersection(ids)), forKey: endedKey)
 
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         for g in wanted {
