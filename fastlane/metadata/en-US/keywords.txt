@@ -1,1 +1,1 @@
-movie,ticket,stub,cinema,film,theater,wallet,barcode,showtime,collection,concert,tickets
+ticket,stub,movie,cinema,concert,game,theater,wallet,barcode,showtime,collection,countdown,calendar

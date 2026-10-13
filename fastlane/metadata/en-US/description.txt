@@ -1,22 +1,21 @@
-Photograph a ticket stub and NDPass reads it: the film, the theater, the date and time, your seat, the price and the booking code. Every ticket is kept in one place, sorted by showtime, and moves to your collection once the film is over.
-
-AT THE DOOR
-NDPass finds the barcode printed on your ticket and shows it full screen on white, at full brightness. If there isn't one, it shows the photo of your stub.
+NDPass keeps your tickets: films, games, concerts, shows, events and trips. Photograph a paper stub, share a screenshot, PDF or confirmation email from any app, or type a ticket in. NDPass reads the title, venue, date, time, seats, price and booking reference, and files it with your other tickets for the same showing.
 
 TONIGHT
-The next showing fills the screen: the film's art, a countdown, your seats, and directions to the theater in Apple Maps or Google Maps.
+The next showing fills the screen with its art, a countdown, your seats and directions in Apple Maps or Google Maps. A Live Activity counts down on your Lock Screen and in the Dynamic Island, and reminders arrive three hours and thirty minutes before.
+
+AT THE DOOR
+NDPass shows the barcode printed on your ticket full screen, on white, at full brightness. If the photo has no readable code, it shows the photo of your stub. For tickets whose code changes every few seconds (Ticketmaster, DICE, AXS, SeatGeek), it opens the seller's app.
+
+YOUR CALENDAR
+Turn it on and every upcoming ticket gets a calendar event, unless your calendar already has one. NDPass keeps its events up to date when you change a ticket.
 
 YOUR COLLECTION
-Every stub you've kept, as a wall of tickets. Filter by year, by games or by concerts. See it on a calendar, or in stats.
-
-MORE
-• Screenshots of e-tickets work too.
-• Tickets for the same showing group together.
-• Reminders the morning of, two hours before and thirty minutes before.
-• A countdown screen for propping your phone on the table.
-• On iPhone with a large display, your list and your ticket sit side by side.
+Every stub you've kept, as a wall of tickets, on a calendar, and in stats: your streaks, your favorite venue, the team and the artist you see most, and a map of every place you've been.
 
 READING TICKETS
-Tickets are read by Anthropic's Claude using your own API key, entered in Settings. NDPass asks before sending any photo, and works without it: you can type the details yourself. Posters come from TMDB with an optional free key.
+Tickets are read on your iPhone, with Apple Intelligence when it's on. Nothing is sent anywhere to read them. If you'd rather, you can have Claude read them instead, using your own Anthropic API key; NDPass asks before any photo is sent.
+
+ART
+Film posters come from TMDB (free key, optional). Games are drawn in their teams' colors, with crests if you add a TheSportsDB key. Concerts get the artist's photo from Deezer.
 
 No account, no ads, no tracking. Your tickets stay on your phone.

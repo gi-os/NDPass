@@ -162,7 +162,7 @@ enum Parser {
         p.kind = EventKind.parse(str("kind"))
         let transit = p.kind == .transit
         p.title = str("movieTitle").isEmpty ? "Untitled" : str("movieTitle")
-        p.venue = PassTimes.titleCase(str("theater")) ?? ""
+        p.venue = PassTimes.display(str("theater"))
         p.date = TicketDate.resolveFromModel(str("date")) ?? ""
         p.time = PassTimes.normalizeTime(str("time"), literal: transit) ?? ""
         if transit {

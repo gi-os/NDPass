@@ -145,12 +145,17 @@ struct VenuePin: Identifiable {
                 continue
             }
             let req = MKLocalSearch.Request(); req.naturalLanguageQuery = n
-            if let item = try? await MKLocalSearch(request: req).start().mapItems.first {
-                let c = item.placemark.coordinate
-                cache[n] = [c.latitude, c.longitude]
-                out.append(VenuePin(name: n, coordinate: c))
-            } else {
-                cache[n] = [0, 0]   // not found; don't ask again
+            req.resultTypes = .pointOfInterest
+            do {
+                if let item = try await MKLocalSearch(request: req).start().mapItems.first {
+                    let c = item.placemark.coordinate
+                    cache[n] = [c.latitude, c.longitude]
+                    out.append(VenuePin(name: n, coordinate: c))
+                } else { cache[n] = [0, 0] }   // searched and not found: don't ask again
+            } catch let e as MKError where e.code == .placemarkNotFound {
+                cache[n] = [0, 0]
+            } catch {
+                // Offline or busy: try again next time.
             }
         }
         Store.defaults.set(cache, forKey: "venueCoords")

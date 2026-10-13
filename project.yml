@@ -37,6 +37,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: NDPass photographs your ticket stubs and reads them.
         NSPhotoLibraryUsageDescription: NDPass imports ticket photos and screenshots you pick.
+        NSCalendarsFullAccessUsageDescription: NDPass adds your upcoming tickets to your calendar, and checks it first so it doesn't add one you already have.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -82,6 +83,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UIAppFonts: [InstrumentSerif-Regular.ttf, InstrumentSerif-Italic.ttf, Geist.ttf, GeistMono.ttf]
+        NSCalendarsFullAccessUsageDescription: NDPass adds your upcoming tickets to your calendar, and checks it first so it doesn't add one you already have.
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController

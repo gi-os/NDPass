@@ -128,7 +128,8 @@ final class Pass {
     /// A trip's arrival, the next day if it's earlier than departure (overnight trains, red-eyes).
     var arrivalDate: Date? {
         guard kind == .transit, let s = start, let a = PassTimes.start(date: date, time: arrival) else { return nil }
-        return a < s ? a.addingTimeInterval(86400) : a
+        // The next calendar day (not +24 h, which is an hour off across a clock change).
+        return a < s ? (Calendar.current.date(byAdding: .day, value: 1, to: a) ?? a.addingTimeInterval(86400)) : a
     }
     var isArchived: Bool {
         // No date yet (a TBD game, an undated stub): upcoming for four months after it was
@@ -139,6 +140,9 @@ final class Pass {
     }
     /// Dated showings in order; a TBD date sorts after every dated one.
     var sortDate: Date { start ?? PassTimes.day(date) ?? Date.distantFuture.addingTimeInterval(-createdAt.timeIntervalSince1970) }
+    /// For lists: upcoming by showtime (TBD last); past ones by when they were, and undated
+    /// past stubs by when they were added (not at the top of the past list).
+    var listDate: Date { isArchived ? (start ?? PassTimes.day(date) ?? createdAt) : sortDate }
     var dateTBD: Bool { PassTimes.day(date) == nil }
     var timeTBD: Bool { PassTimes.start(date: "2000-01-01", time: time) == nil }
     /// "Aug 6" / "Date TBD", "7:30 PM" / "TBD", for labels.

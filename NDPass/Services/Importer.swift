@@ -21,7 +21,7 @@ final class Importer: ObservableObject {
         log = []
         lastError = nil
         defer { busy = false }
-        let upright = Self.upright(image)
+        let upright = ImageKit.fit(image)
         var parsed = Parsed()
         if ReaderChoice.current == .claude && AIConsent.granted && Keys.get(.anthropic) != nil {
             step("Reading the ticket with Claude…")
@@ -58,6 +58,10 @@ final class Importer: ObservableObject {
             p.scannedFormat = found.format
             step("Found a \(found.format.rawValue.uppercased()) code.")
         } else { step("No readable code in the photo.") }
+        // Nothing a ticket has (a name, a date, a reference or a code): a photo of something else.
+        if (parsed.title == "Untitled" || parsed.title.isEmpty) && parsed.date.isEmpty && parsed.code.isEmpty && found == nil {
+            lastError = "That doesn't look like a ticket."; step("No ticket found in the photo."); return nil
+        }
 
         await decorate(p)
         return p
@@ -90,7 +94,8 @@ final class Importer: ObservableObject {
         if let twin = all.first(where: { $0.sameShowing(as: p) }) { p.group = twin.group; step("Grouped with your other ticket.") }
         ctx.insert(p)
         try? ctx.save()
-        Reminders.schedule(p)
+        Reminders.sync(all + [p])
+        CalendarSync.sync(all + [p])
         step("Saved.")
     }
 
@@ -112,7 +117,14 @@ final class Importer: ObservableObject {
             body = await Self.pageText(u)
         }
         step("Reading the ticket on this iPhone…")
-        var parsed = await OnDeviceReader.read(lines: body.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        func lines(_ t: String) -> [String] { t.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+        var parsed = await OnDeviceReader.read(lines: lines(body))
+        // Shared text with a link (an email's "view your tickets"): try the page too.
+        if (parsed.notATicket || parsed.title == "Untitled" && parsed.date.isEmpty), !text.isEmpty, let s = sourceURL, let u = URL(string: s) {
+            step("Opening the link…")
+            let page = await Self.pageText(u)
+            if !page.isEmpty { body = text + "\n" + page; parsed = await OnDeviceReader.read(lines: lines(body)) }
+        }
         if parsed.notATicket || parsed.title == "Untitled" && parsed.date.isEmpty { lastError = "Couldn't find a ticket in that."; step("No ticket found."); return nil }
         parsed.seller = Seller.detect(text: body, url: sourceURL)
         let p = Self.pass(from: parsed)
@@ -138,10 +150,13 @@ final class Importer: ObservableObject {
     func decorate(_ p: Pass) async {
         if p.kind == .movie, let key = Keys.get(.tmdb) {
             step("Finding the poster…")
+            // The exact title first: a repertory screening of an old film shouldn't get this
+            // year's film of a similar name. Then the ticket's year, then anything.
             let year = String(p.date.prefix(4))
-            let matches = await TMDb.search(p.title, year: year, key: key)
-            var m = matches.first
-            if m == nil { m = await TMDb.search(p.title, key: key).first }
+            let thisYear = await TMDb.search(p.title, year: year, key: key)
+            let any = await TMDb.search(p.title, key: key)
+            func same(_ m: MovieMatch) -> Bool { m.title.lowercased().filter(\.isLetter) == p.title.lowercased().filter(\.isLetter) }
+            let m = thisYear.first(where: same) ?? any.first(where: same) ?? thisYear.first ?? any.first
             if let m {
                 apply(m, to: p)
                 p.runtime = await TMDb.runtime(m.id, key: key)
@@ -167,12 +182,6 @@ final class Importer: ObservableObject {
     private func step(_ s: String) { log.append(s) }
     /// A line after a batch, kept on screen with the last ticket's steps.
     func note(_ s: String) { log.append(s) }
-
-    static func upright(_ img: UIImage) -> UIImage {
-        guard img.imageOrientation != .up else { return img }
-        let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 1
-        return UIGraphicsImageRenderer(size: img.size, format: fmt).image { _ in img.draw(in: CGRect(origin: .zero, size: img.size)) }
-    }
 
     /// The model's box, with a little margin, clamped to the photo.
     static func crop(_ img: UIImage, to box: CGRect) -> UIImage? {

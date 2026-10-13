@@ -6,8 +6,12 @@ import SwiftData
 struct DetailView: View {
     let group: UUID
     @Environment(\.modelContext) private var ctx
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var importer: Importer
-    @Query private var passes: [Pass]
+    @Query private var queried: [Pass]
+    /// The showing's tickets, seats in printed order (F9 before F10).
+    private var passes: [Pass] { Showings.sortSeats(queried) }
+    @State private var removing: Pass?
     @State private var editing: Pass?
     @State private var photoFor: Pass?
     @State private var door = false
@@ -20,7 +24,7 @@ struct DetailView: View {
 
     init(group: UUID) {
         self.group = group
-        _passes = Query(filter: #Predicate<Pass> { $0.group == group }, sort: \Pass.seat)
+        _queried = Query(filter: #Predicate<Pass> { $0.group == group })
     }
 
     var body: some View {
@@ -61,12 +65,19 @@ struct DetailView: View {
                     default: EmptyView()
                     }
                     Button { merging = true } label: { Label("Merge with another ticket", systemImage: "rectangle.stack.badge.plus") }
+                    if passes.count > 1 {
+                        Menu {
+                            ForEach(Array(passes.enumerated()), id: \.element.id) { i, t in
+                                Button(role: .destructive) { removing = t } label: { Text(t.seat.isEmpty ? "Ticket \(i + 1)" : t.seat) }
+                            }
+                        } label: { Label("Remove one ticket", systemImage: "minus.circle") }
+                    }
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete", systemImage: "trash") }
                 } label: { Image(systemName: "ellipsis") }
                 .accessibilityLabel("More")
             }
         }
-        .sheet(item: $editing) { EditView(pass: $0) }
+        .sheet(item: $editing) { p in EditView(passes: passes, start: passes.firstIndex(where: { $0.id == p.id }) ?? 0).environmentObject(importer) }
         .fullScreenCover(item: $photoFor) { p in PhotoViewer(data: p.photo) }
         .fullScreenCover(isPresented: $door) { DoorView(passes: passes) }
         .fullScreenCover(isPresented: $countdown) { CountdownView(passes: passes) }
@@ -76,8 +87,15 @@ struct DetailView: View {
         .sheet(isPresented: $merging) { MergePicker(into: passes) }
         .confirmationDialog("Delete \(passes.count == 1 ? "this ticket" : "these \(passes.count) tickets")?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
-                for p in passes { Reminders.cancel(p.id); ctx.delete(p) }
+                for p in passes { ctx.delete(p) }
                 try? ctx.save()
+                dismiss()
+            }
+        }
+        .confirmationDialog("Remove \(removing.map { $0.seat.isEmpty ? "this ticket" : "seat \($0.seat)" } ?? "")?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {
+            Button("Remove", role: .destructive) {
+                if let r = removing { ctx.delete(r); try? ctx.save() }
+                removing = nil
             }
         }
     }
@@ -181,7 +199,7 @@ struct DetailView: View {
     private func timeRange(_ p: Pass) -> String {
         guard !p.timeTBD else { return "TBD" }
         guard let r = p.runtime, let s = p.start else { return p.time }
-        return p.time + " – " + s.addingTimeInterval(Double(r) * 60).formatted(date: .omitted, time: .shortened)
+        return p.time + " – " + PassTimes.clock(s.addingTimeInterval(Double(r) * 60))
     }
 
     private func extras(_ p: Pass) -> some View {
@@ -209,7 +227,7 @@ struct DetailView: View {
     }
 }
 
-/// The code on the stub: the real one when the photo had it, else drawn from the reference.
+/// The code on the stub, when the photo had one.
 struct CodeTile: View {
     let passes: [Pass]
     var side: CGFloat = 122
@@ -222,8 +240,13 @@ struct CodeTile: View {
                     .padding(10).frame(width: side, height: side).background(Theme.paper, in: RoundedRectangle(cornerRadius: 16))
                 VStack(alignment: .leading, spacing: 5) {
                     Text("From your ticket").font(Theme.sans(15, .medium)).foregroundStyle(Theme.ink)
-                    Text("The code printed on the stub, read off your photo. Scans at the door.")
-                        .font(Theme.sans(13)).foregroundStyle(Theme.ink.opacity(0.78)).fixedSize(horizontal: false, vertical: true)
+                    if let seller = p?.seller, seller.rotatingCode {
+                        Text("Read off your screenshot. \(seller.name) codes change every few seconds, so this one may not scan; the \(seller.name) app always will.")
+                            .font(Theme.sans(13)).foregroundStyle(Theme.ink.opacity(0.78)).fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("The code printed on the stub, read off your photo. Scans at the door.")
+                            .font(Theme.sans(13)).foregroundStyle(Theme.ink.opacity(0.78)).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             } else {
                 Text(p?.photo != nil ? "No readable code on this ticket. Show the stub photo at the door." : "No code on this ticket.")

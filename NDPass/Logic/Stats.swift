@@ -35,13 +35,45 @@ struct Stats {
     let year: Int
     let byMonth: [MonthCount]
 
-    static func price(_ s: String) -> Double { Double(s.filter { "0123456789.".contains($0) }) ?? 0 }
+    /// The ticket's price: the first amount with a currency sign, else the first number.
+    /// "$17.00", "€12,50" (comma decimals), "2 x $17.00" (the price, not 217), "$145.00 + $12.50 fees" (145).
+    static func price(_ s: String) -> Double {
+        let amount = #"([0-9]{1,3}(?:[,. ][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]+(?:[.,][0-9]{1,2})?)"#
+        let withSign = try? NSRegularExpression(pattern: #"[$€£¥]\s?"# + amount + #"|"# + amount + #"\s?(?:€|£|EUR|USD|GBP|CAD)"#)
+        let plain = try? NSRegularExpression(pattern: amount)
+        let ns = s as NSString
+        func number(_ m: NSTextCheckingResult) -> Double? {
+            for i in 1..<m.numberOfRanges where m.range(at: i).location != NSNotFound {
+                var t = ns.substring(with: m.range(at: i)).replacingOccurrences(of: " ", with: "")
+                // "12,50" → 12.50; "1,250.00" → 1250.00; "1.250,00" → 1250.00
+                if let last = t.lastIndex(where: { $0 == "," || $0 == "." }), t.distance(from: last, to: t.endIndex) <= 3 {
+                    let dec = t[last]
+                    let other: Character = dec == "," ? "." : ","
+                    t = t.replacingOccurrences(of: String(other), with: "")
+                    t = t.replacingOccurrences(of: String(dec), with: ".")
+                } else {
+                    t = t.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: ".", with: "")
+                }
+                return Double(t)
+            }
+            return nil
+        }
+        let all = NSRange(location: 0, length: ns.length)
+        // "2 x $17" / "2x" multiplier: skip the count, take the amount.
+        if let r = withSign, let m = r.firstMatch(in: s, range: all), let v = number(m) { return v }
+        if let r = plain {
+            let ms = r.matches(in: s, range: all)
+            let ex = s.range(of: #"^\s*[0-9]+\s*[x×]\s*"#, options: .regularExpression) != nil
+            if let m = (ex ? ms.dropFirst().first : ms.first), let v = number(m) { return v }
+        }
+        return 0
+    }
 
     init(_ all: [Pass], now: Date = Date(), calendar: Calendar = .current) {
         // Trips are how you get there, not somewhere you went: they stay out of the stats.
         let passes = all.filter { $0.kind != .transit }
         let cal = calendar
-        let groups = Dictionary(grouping: passes, by: \.group).values.map { $0 }
+        let groups = Dictionary(grouping: passes, by: \.group).values.map { Showings.sortSeats($0) }
         let shows = groups.compactMap { g -> (Pass, Date)? in
             guard let p = g.first, let d = p.start ?? PassTimes.day(p.date) else { return nil }
             return (p, d)
@@ -49,7 +81,8 @@ struct Stats {
         let past = shows.filter { $0.1 <= now }
 
         tickets = passes.count
-        visits = groups.count
+        // Nights out are the ones that happened (upcoming and TBD showings don't count yet).
+        visits = groups.filter { $0[0].isArchived }.count
         let prices = passes.map { Self.price($0.price) }.filter { $0 > 0 }
         spent = prices.reduce(0, +)
         averagePrice = prices.isEmpty ? nil : spent / Double(prices.count)

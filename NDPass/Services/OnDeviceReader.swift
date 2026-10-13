@@ -41,13 +41,14 @@ enum OnDeviceReader {
         p = patterns(lines)
         #endif
         p.rawText = lines.prefix(200).joined(separator: "\n")
-        p.date = TicketDate.resolveFromModel(p.date) ?? ""
+        // A year only counts if it's in the ticket's own text (the model can make one up).
+        p.date = TicketDate.resolveFromModel(p.date, evidence: p.rawText) ?? ""
         p.time = PassTimes.normalizeTime(p.time, literal: p.kind == .transit) ?? ""
         if p.kind == .transit && p.mode.isEmpty { p.mode = TransitMode.parse(p.rawText).rawValue }
-        p.venue = PassTimes.titleCase(p.venue) ?? ""
+        p.venue = PassTimes.display(p.venue)
         p.code = BookingCode.normalize(p.code) ?? ""
         if p.title.isEmpty { p.title = "Untitled" }
-        p.confidence = lines.isEmpty ? 0 : (engine == .appleIntelligence ? 0.8 : 0.5)
+        p.confidence = 0   // only Claude reports a real confidence
         return p
     }
 
@@ -93,6 +94,18 @@ enum OnDeviceReader {
         var code: String
         @Guide(description: "True if the text is not from an event ticket at all")
         var notATicket: Bool
+        @Guide(description: "Transit only: train, flight, bus or ferry. Empty otherwise")
+        var mode: String
+        @Guide(description: "Transit only: the railway, airline or bus line, like Amtrak or United. Empty otherwise")
+        var carrier: String
+        @Guide(description: "Transit only: the train, flight or bus number, like 2151 or UA 123. Empty otherwise")
+        var trip: String
+        @Guide(description: "Transit only: where it arrives, station or airport. Empty otherwise")
+        var destination: String
+        @Guide(description: "Transit only: the arrival time as h:mm AM/PM. Empty otherwise")
+        var arrival: String
+        @Guide(description: "Transit only: track, platform or gate. Empty otherwise")
+        var gate: String
     }
 
     @available(iOS 26.0, *)
@@ -112,6 +125,11 @@ enum OnDeviceReader {
             p.kind = EventKind.parse(f.kind)
             p.title = f.title; p.venue = f.venue; p.date = f.date; p.time = f.time
             p.seat = f.seat; p.price = f.price; p.code = f.code
+            if p.kind == .transit {
+                p.mode = f.mode; p.carrier = f.carrier; p.trip = f.trip; p.gate = f.gate
+                p.destination = Transit.place(f.destination)
+                p.arrival = PassTimes.normalizeTime(f.arrival, literal: true) ?? ""
+            }
             return p
         } catch {
             return nil
@@ -133,8 +151,18 @@ enum OnDeviceReader {
         if let r = try? Regex("[$€£]\\s?\\d+[.,]\\d{2}"), let t = first(r, in: all) { p.price = t }
         p.date = date(in: all) ?? ""
         if let line = lines.first(where: { $0.range(of: "(?i)\\b(seat|row|sec(tion)?)\\b", options: .regularExpression) != nil }) { p.seat = line }
-        if let line = lines.first(where: { $0.range(of: "(?i)\\b(booking|confirmation|ref(erence)?|order)\\b", options: .regularExpression) != nil }),
-           let r = try? Regex("[A-Z0-9-]{5,}"), let c = first(r, in: line) { p.code = c }
+        // The reference after its label (on the same line or the next): letters and digits
+        // with at least one digit, so the label itself ("ORDER", "BOOKING") or a row of dashes
+        // is never taken for it.
+        if let r = try? Regex("\\b(?=[A-Z0-9-]*[0-9])[A-Z0-9][A-Z0-9-]{4,}\\b") {
+            let label = "(?i)\\b(booking|confirmation|ref(erence)?|order)\\b"
+            outer: for (i, line) in lines.enumerated() where line.range(of: label, options: .regularExpression) != nil {
+                let after = line.range(of: "(?i)(booking|confirmation|ref(erence)?|order)[^A-Za-z0-9]*(no\\.?|number|#|code)?", options: .regularExpression).map { String(line[$0.upperBound...]) } ?? line
+                for candidate in [after, line, i + 1 < lines.count ? lines[i + 1] : ""] {
+                    if let c = first(r, in: candidate) { p.code = c; break outer }
+                }
+            }
+        }
         let venues = ["cinema", "theater", "theatre", "amc", "regal", "alamo", "arena", "stadium", "garden", "hall", "center", "centre", "film forum", "metrograph", "angelika", "ifc", "station", "terminal", "airport"]
         if let v = lines.first(where: { l in venues.contains { l.lowercased().contains($0) } }) { p.venue = v }
         // The title: the longest line that isn't one of the above and isn't mostly digits.
@@ -143,7 +171,8 @@ enum OnDeviceReader {
             !taken.contains(l) && l.count >= 3 && l.filter(\.isLetter).count * 2 > l.count
                 && l.range(of: "(?i)(admit|ticket|seat|row|price|total|tax|date|time|screen|auditorium)", options: .regularExpression) == nil
         }.max { $0.count < $1.count } ?? ""
-        if all.range(of: "(?i)\\b(vs\\.?|v\\.|@)\\b", options: .regularExpression) != nil { p.kind = .sports }
+        // "Knicks vs Celtics", "Knicks @ Celtics" (an @ with spaces round it: not an email).
+        if all.range(of: "(?i)(\\bvs\\.?\\s|\\sv\\.\\s|\\s@\\s)", options: .regularExpression) != nil { p.kind = .sports }
         if all.range(of: "(?i)\\b(boarding pass|departs?|departure|platform|flight no|flight|amtrak|nj transit|lirr|metro-north|greyhound|megabus|flixbus|eurostar|ferry|coach \\d)\\b", options: .regularExpression) != nil {
             p.kind = .transit
             p.mode = TransitMode.parse(all).rawValue
@@ -158,21 +187,26 @@ enum OnDeviceReader {
     /// "DEC 18", "12/18/2026", "2026-12-18", "Friday, October 9" → a date string TicketDate understands.
     static func date(in s: String) -> String? {
         let months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-        if let r = try? Regex("\\b(20\\d{2})-(\\d{1,2})-(\\d{1,2})\\b"), let m = try? r.firstMatch(in: s) { return String(s[m.range]) }
+        if let r = try? Regex("\\b((?:19|20)[0-9]{2})-([0-9]{1,2})-([0-9]{1,2})\\b"), let m = try? r.firstMatch(in: s) { return String(s[m.range]) }
         if let r = try? Regex("\\b(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?\\b"), let m = try? r.firstMatch(in: s) {
             let parts = String(s[m.range]).split(separator: "/").map(String.init)
             if parts.count >= 2, let mo = Int(parts[0]), let d = Int(parts[1]), (1...12).contains(mo), (1...31).contains(d) {
-                if parts.count == 3, var y = Int(parts[2]) { if y < 100 { y += 2000 }; return String(format: "%04d-%02d-%02d", y, mo, d) }
+                if parts.count == 3, var y = Int(parts[2]) {
+                    if y < 100 { y += (y > (Calendar(identifier: .gregorian).component(.year, from: Date()) % 100) + 1) ? 1900 : 2000 }
+                    return String(format: "%04d-%02d-%02d", y, mo, d)
+                }
                 return String(format: "%02d-%02d", mo, d)
             }
         }
-        if let r = try? Regex("(?i)\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(20\\d{2}))?"),
+        // Month names as written ("Dec", "December", "Sept."), not words that start like one
+        // ("Marvel 2", "Junction 3").
+        if let r = try? Regex("(?i)\\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?\\s+([0-9]{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20[0-9]{2}|19[0-9]{2}))?"),
            let m = try? r.firstMatch(in: s) {
             let text = String(s[m.range]).lowercased()
             guard let mi = months.firstIndex(where: { text.hasPrefix($0) }) else { return nil }
             let nums = text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
             guard let d = nums.first, (1...31).contains(d) else { return nil }
-            if nums.count > 1, nums[1] > 2000 { return String(format: "%04d-%02d-%02d", nums[1], mi + 1, d) }
+            if nums.count > 1, nums[1] > 1900 { return String(format: "%04d-%02d-%02d", nums[1], mi + 1, d) }
             return String(format: "%02d-%02d", mi + 1, d)
         }
         return nil

@@ -42,7 +42,9 @@ enum ExpoImport {
 
     @MainActor
     static func runIfNeeded(_ ctx: ModelContext) -> Int {
-        guard !UserDefaults.standard.bool(forKey: doneKey), let url = databaseURL() else { return 0 }
+        guard !UserDefaults.standard.bool(forKey: doneKey) else { return 0 }
+        // Looked once; a fresh install has nothing to bring over, so don't look again.
+        guard let url = databaseURL() else { UserDefaults.standard.set(true, forKey: doneKey); return 0 }
         var db: OpaquePointer?
         guard sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let db else { return 0 }
         defer { sqlite3_close(db) }
@@ -69,7 +71,8 @@ enum ExpoImport {
             if k == "tmdb_api_key", Keys.get(.tmdb) == nil { Keys.set(.tmdb, v) }
         }
 
-        // The Expo app's own reminders are still queued; replace them rather than double up.
+        // The Expo app's own reminders are still queued; they're replaced by NDPass's own
+        // (Reminders.sync clears the queue and rebuilds it).
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         let existing = Set(((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).map(\.id))
         var groups: [String: UUID] = [:]
@@ -95,7 +98,6 @@ enum ExpoImport {
             let key = r["groupKey"] ?? "\(p.title)|\(p.venue)|\(p.date)|\(p.time)"
             if let g = groups[key] { p.group = g } else { groups[key] = p.group }
             ctx.insert(p)
-            Reminders.schedule(p)
             count += 1
         }
         try? ctx.save()

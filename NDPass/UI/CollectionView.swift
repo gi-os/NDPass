@@ -7,13 +7,14 @@ struct CollectionView: View {
     @State private var filter = "All"
 
     private var years: [String] {
-        Array(Set(passes.compactMap { $0.date.count >= 4 ? String($0.date.prefix(4)) : nil })).sorted(by: >)
+        Array(Set(passes.compactMap { PassTimes.day($0.date) != nil ? String($0.date.prefix(4)) : nil })).sorted(by: >)
     }
 
     /// One chip per kind you actually have, besides films.
     private var kindFilters: [String] {
         let have = Set(passes.map(\.kind))
-        return EventKind.allCases.filter { $0 != .movie && have.contains($0) }.map(\.plural)
+        guard have.count > 1 else { return [] }
+        return EventKind.allCases.filter { have.contains($0) }.map(\.plural)
     }
 
     private var groups: [[Pass]] {
@@ -26,7 +27,7 @@ struct CollectionView: View {
                 return p.date.hasPrefix(filter)
             }
         }
-        .sorted { $0[0].sortDate > $1[0].sortDate }
+        .sorted { $0[0].listDate > $1[0].listDate }
     }
 
     var body: some View {
@@ -36,7 +37,7 @@ struct CollectionView: View {
                     HStack(alignment: .firstTextBaseline) {
                         Text("Collection").font(Theme.serif(42)).foregroundStyle(Theme.ink)
                         Spacer()
-                        Text("\(passes.count) STUBS").font(Theme.mono(12)).foregroundStyle(Theme.muted)
+                        Text(passes.count == 1 ? "1 STUB" : "\(passes.count) STUBS").font(Theme.mono(12)).foregroundStyle(Theme.muted)
                     }
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {

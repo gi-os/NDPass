@@ -1,17 +1,20 @@
 import SwiftUI
 import SwiftData
 
+/// Edit a showing: what it is, where and when for all its tickets at once, and each ticket's
+/// seat, price and reference. Also used to type a ticket in by hand (`isNew`).
 struct EditView: View {
-    @Bindable var pass: Pass
+    let passes: [Pass]
+    var isNew = false
+    var start = 0
+    var onSaved: (Pass) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
+    @EnvironmentObject private var importer: Importer
     @State private var title = ""
     @State private var venue = ""
     @State private var date = ""
     @State private var time = ""
-    @State private var seat = ""
-    @State private var price = ""
-    @State private var code = ""
     @State private var kind: EventKind = .movie
     @State private var seller: Seller?
     @State private var mode: TransitMode = .train
@@ -20,6 +23,10 @@ struct EditView: View {
     @State private var destination = ""
     @State private var arrival = ""
     @State private var gate = ""
+    @State private var seats: [String] = []
+    @State private var prices: [String] = []
+    @State private var codes: [String] = []
+    @State private var ticket = 0
 
     var body: some View {
         NavigationStack {
@@ -47,48 +54,76 @@ struct EditView: View {
                     TimeField(label: kind == .transit ? "Departs" : "Time", text: $time)
                     if kind == .transit { TimeField(label: "Arrives", text: $arrival) }
                 }
-                Section {
-                    TextField("Seat", text: $seat)
-                    TextField("Price", text: $price)
-                    TextField("Booking reference", text: $code).autocorrectionDisabled().textInputAutocapitalization(.never)
+                if seats.indices.contains(ticket) {
+                    Section {
+                        if passes.count > 1 {
+                            Picker("Ticket", selection: $ticket) {
+                                ForEach(seats.indices, id: \.self) { i in Text(seats[i].isEmpty ? "Ticket \(i + 1)" : seats[i]).tag(i) }
+                            }
+                        }
+                        TextField("Seat", text: $seats[ticket])
+                        TextField("Price", text: $prices[ticket])
+                        TextField("Booking reference", text: $codes[ticket]).autocorrectionDisabled().textInputAutocapitalization(.never)
+                    } header: { if passes.count > 1 { Text("Each ticket") } }
                 }
             }
-            .navigationTitle("Edit ticket")
+            .navigationTitle(isNew ? "New ticket" : "Edit ticket")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.bold() }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isNew ? "Add" : "Save") { save() }.bold()
+                        .disabled(isNew && title.trimmingCharacters(in: .whitespaces).isEmpty && venue.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
             }
-            .onAppear {
-                title = pass.title; venue = pass.venue; date = pass.date; time = pass.time
-                seat = pass.seat; price = pass.price; code = pass.bookingCode; kind = pass.kind; seller = pass.seller
-                mode = pass.transitMode; carrier = pass.carrier; trip = pass.trip
-                destination = pass.destination; arrival = pass.arrival; gate = pass.gate
-            }
+            .onAppear(perform: load)
         }
     }
 
+    private func load() {
+        guard let pass = passes.first, seats.isEmpty else { return }
+        title = pass.title == "Untitled" ? "" : pass.title; venue = pass.venue; date = pass.date; time = pass.time
+        kind = pass.kind; seller = pass.seller
+        mode = pass.transitMode; carrier = pass.carrier; trip = pass.trip
+        destination = pass.destination; arrival = pass.arrival; gate = pass.gate
+        seats = passes.map(\.seat); prices = passes.map(\.price); codes = passes.map(\.bookingCode)
+        ticket = min(max(0, start), passes.count - 1)
+    }
+
     private func save() {
-        pass.title = title.trimmingCharacters(in: .whitespaces)
-        pass.venue = venue.trimmingCharacters(in: .whitespaces)
-        pass.date = TicketDate.resolveTyped(date) ?? ""
-        pass.time = PassTimes.normalizeTime(time, literal: kind == .transit) ?? ""
-        pass.seat = seat
-        pass.price = price
-        pass.bookingCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        pass.kind = kind
-        pass.seller = seller
-        if kind == .transit {
-            pass.transitMode = mode
-            pass.carrier = carrier.trimmingCharacters(in: .whitespaces)
-            pass.trip = trip.trimmingCharacters(in: .whitespaces)
-            pass.destination = destination.trimmingCharacters(in: .whitespaces)
-            pass.arrival = PassTimes.normalizeTime(arrival, literal: true) ?? ""
-            pass.gate = gate.trimmingCharacters(in: .whitespaces)
-            if pass.title.isEmpty || pass.title == "Untitled", let r = Transit.route(pass.venue, pass.destination) { pass.title = r }
+        let t = title.trimmingCharacters(in: .whitespaces)
+        for (i, pass) in passes.enumerated() {
+            pass.title = t.isEmpty ? "Untitled" : t
+            pass.venue = venue.trimmingCharacters(in: .whitespaces)
+            pass.date = TicketDate.resolveTyped(date) ?? ""
+            // Picked with the time picker, so taken as given (a 6:30 AM tour is real).
+            pass.time = PassTimes.normalizeTime(time, literal: true) ?? ""
+            pass.kind = kind
+            pass.seller = seller
+            if seats.indices.contains(i) {
+                pass.seat = seats[i].trimmingCharacters(in: .whitespaces)
+                pass.price = prices[i].trimmingCharacters(in: .whitespaces)
+                pass.bookingCode = codes[i].trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if kind == .transit {
+                pass.transitMode = mode
+                pass.carrier = carrier.trimmingCharacters(in: .whitespaces)
+                pass.trip = trip.trimmingCharacters(in: .whitespaces)
+                pass.destination = destination.trimmingCharacters(in: .whitespaces)
+                pass.arrival = PassTimes.normalizeTime(arrival, literal: true) ?? ""
+                pass.gate = gate.trimmingCharacters(in: .whitespaces)
+                if pass.title == "Untitled", let r = Transit.route(pass.venue, pass.destination) { pass.title = r }
+            }
         }
-        try? ctx.save()
-        Reminders.schedule(pass)
+        guard let first = passes.first else { dismiss(); return }
+        if isNew {
+            importer.file(first, into: ctx)
+            // The poster or art, as if it had been scanned.
+            Task { await importer.decorate(first); try? ctx.save() }
+        } else {
+            try? ctx.save()
+        }
+        onSaved(first)
         dismiss()
     }
 }
@@ -151,7 +186,7 @@ struct MergePicker: View {
 
     var body: some View {
         let target = into.first
-        let others = Dictionary(grouping: all.filter { $0.group != target?.group }, by: \.group).values.map { $0 }
+        let others = Showings.groups(all.filter { $0.group != target?.group }, archived: nil)
         NavigationStack {
             List(others, id: \.first!.group) { g in
                 Button { merge(g) } label: { TicketCard(passes: g) }.listRowBackground(Color.clear).listRowSeparator(.hidden)
@@ -165,9 +200,15 @@ struct MergePicker: View {
 
     private func merge(_ g: [Pass]) {
         guard let t = into.first else { return }
+        // Everything about the showing comes from this one; each ticket keeps its own seat,
+        // price, reference, photo and code.
         for p in g {
             p.group = t.group; p.kind = t.kind; p.title = t.title
-            p.tmdbID = t.tmdbID; p.posterPath = t.posterPath; p.backdropPath = t.backdropPath; p.overview = t.overview; p.runtime = t.runtime
+            p.venue = t.venue; p.date = t.date; p.time = t.time; p.sellerRaw = t.sellerRaw
+            p.tmdbID = t.tmdbID; p.posterPath = t.posterPath; p.backdropPath = t.backdropPath; p.logoPath = t.logoPath
+            p.overview = t.overview; p.runtime = t.runtime; p.art = t.art
+            p.transitModeRaw = t.transitModeRaw; p.carrier = t.carrier; p.trip = t.trip
+            p.destination = t.destination; p.arrival = t.arrival; p.gate = t.gate
         }
         try? ctx.save()
         dismiss()

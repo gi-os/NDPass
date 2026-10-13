@@ -14,11 +14,12 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         let host = UIHostingController(rootView: ShareCard(model: model, add: { [weak self] in
-            self?.model.save()
-            self?.extensionContext?.completeRequest(returningItems: nil)
+            guard let self else { return }
+            if self.model.save() { self.extensionContext?.completeRequest(returningItems: nil) }
         }, cancel: { [weak self] in
             self?.extensionContext?.completeRequest(returningItems: nil)
         }))
+        host.overrideUserInterfaceStyle = .dark
         addChild(host)
         host.view.frame = view.bounds
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -27,27 +28,39 @@ final class ShareViewController: UIViewController {
         Task { await collect() }
     }
 
+    /// What was shared, kept as file data until it's read: decoding a camera photo at full
+    /// size would take most of the memory a share sheet gets.
     private func collect() async {
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
-        var images: [(UIImage, String?)] = []
+        var images: [ShareModel.Source] = []
         var text: [String] = []
         var link: String?
         for p in providers {
-            if p.hasItemConformingToTypeIdentifier(UTType.image.identifier), let data = await loadData(p, UTType.image), let img = UIImage(data: data) {
-                images.append((img, nil))
-            } else if p.hasItemConformingToTypeIdentifier(UTType.pdf.identifier), let data = await loadData(p, UTType.pdf),
-                      let doc = PDFDocument(data: data) {
+            if p.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                guard images.count < ShareModel.maxTickets, let data = await loadData(p, UTType.image) else { continue }
+                images.append(.photo(data))
+            } else if p.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
+                guard images.count < ShareModel.maxTickets, let data = await loadData(p, UTType.pdf), let doc = PDFDocument(data: data) else { continue }
                 let pdfText = (0..<min(doc.pageCount, 3)).compactMap { doc.page(at: $0)?.string }.joined(separator: "\n")
                 if let page = doc.page(at: 0) {
                     let r = page.bounds(for: .mediaBox)
-                    let scale = 1600 / max(r.width, r.height)
-                    images.append((page.thumbnail(of: CGSize(width: r.width * scale, height: r.height * scale), for: .mediaBox), pdfText))
-                } else { text.append(pdfText) }
+                    if r.width > 1, r.height > 1 {
+                        let scale = 1600 / max(r.width, r.height)
+                        images.append(.page(page.thumbnail(of: CGSize(width: r.width * scale, height: r.height * scale), for: .mediaBox), pdfText))
+                        continue
+                    }
+                }
+                text.append(pdfText)
             } else if p.hasItemConformingToTypeIdentifier(UTType.url.identifier), let u = await loadURL(p) {
-                if u.isFileURL, let d = try? Data(contentsOf: u), let s = String(data: d, encoding: .utf8) { text.append(Self.stripEmail(s)) }
-                else { link = u.absoluteString }
+                if u.isFileURL {
+                    // A text or email file from Files; anything big (a video, an archive) isn't a ticket.
+                    let size = (try? u.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                    if size > 0, size < 5_000_000, let d = try? Data(contentsOf: u, options: .mappedIfSafe), let s = String(data: d, encoding: .utf8) {
+                        text.append(Self.stripEmail(s))
+                    }
+                } else { link = u.absoluteString }
             } else if p.hasItemConformingToTypeIdentifier("public.email-message"), let d = await loadData(p, UTType(importedAs: "public.email-message")),
-                      let s = String(data: d, encoding: .utf8) ?? String(data: d, encoding: .isoLatin1) {
+                      d.count < 10_000_000, let s = String(data: d, encoding: .utf8) ?? String(data: d, encoding: .isoLatin1) {
                 text.append(Self.stripEmail(s))
             } else if p.hasItemConformingToTypeIdentifier(UTType.plainText.identifier), let s = await loadText(p) {
                 text.append(s)
@@ -74,19 +87,60 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    /// The readable part of an email: headers that matter, then the body without HTML.
+    /// The readable part of an email: Subject and From, then every text part of the body,
+    /// decoded (base64 or quoted-printable) and without HTML.
     static func stripEmail(_ raw: String) -> String {
+        let crlf = raw.contains("\r\n")
+        let nl = crlf ? "\r\n" : "\n"
+        let split = raw.components(separatedBy: nl + nl)
         var keep: [String] = []
-        let parts = raw.components(separatedBy: "\r\n\r\n").count > 1 ? raw.components(separatedBy: "\r\n\r\n") : raw.components(separatedBy: "\n\n")
-        if let head = parts.first {
+        if let head = split.first {
             for l in head.components(separatedBy: .newlines) where l.hasPrefix("Subject:") || l.hasPrefix("From:") { keep.append(l) }
         }
-        let body = parts.dropFirst().joined(separator: "\n")
+        // Walk the MIME parts: each is headers, a blank line, a body.
+        var bodies: [String] = []
+        var i = 1
+        var headers = split.first ?? ""
+        while i < split.count {
+            let body = split[i]
+            let h = headers.lowercased()
+            if h.contains("content-transfer-encoding: base64") {
+                let b64 = body.components(separatedBy: nl).prefix { !$0.hasPrefix("--") }.joined()
+                if let d = Data(base64Encoded: b64, options: .ignoreUnknownCharacters), let t = String(data: d, encoding: .utf8) ?? String(data: d, encoding: .isoLatin1) {
+                    bodies.append(t)
+                }
+            } else if h.contains("quoted-printable") {
+                bodies.append(quotedPrintable(body))
+            } else {
+                bodies.append(body)
+            }
+            // The next part's headers are the tail of this chunk after a boundary line.
+            if let r = body.range(of: nl + "--", options: .backwards) {
+                let tail = body[r.upperBound...]
+                headers = tail.components(separatedBy: nl).dropFirst().joined(separator: nl)
+            } else { headers = "" }
+            i += 1
+        }
+        let text = bodies.joined(separator: "\n")
+            .replacingOccurrences(of: "(?s)<(script|style)[^>]*>.*?</\\1>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "<(br|/p|/div|/li|/tr|/h[1-6])[^>]*>", with: "\n", options: .regularExpression)
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: "=\r?\n", with: "", options: .regularExpression)
-            .replacingOccurrences(of: "&nbsp;", with: " ")
-        keep.append(body)
+            .replacingOccurrences(of: "&nbsp;", with: " ").replacingOccurrences(of: "&amp;", with: "&")
+        keep.append(text)
         return keep.joined(separator: "\n")
+    }
+
+    /// "=3D" → "=", soft line breaks joined.
+    static func quotedPrintable(_ s: String) -> String {
+        let joined = s.replacingOccurrences(of: "=\r?\n", with: "", options: .regularExpression)
+        var bytes: [UInt8] = []
+        var it = Array(joined.utf8)[...]
+        while let c = it.popFirst() {
+            if c == UInt8(ascii: "="), it.count >= 2, let v = UInt8(String(decoding: it.prefix(2), as: UTF8.self), radix: 16) {
+                bytes.append(v); it = it.dropFirst(2)
+            } else { bytes.append(c) }
+        }
+        return String(decoding: bytes, as: UTF8.self)
     }
 }
 
@@ -97,13 +151,24 @@ final class ShareModel: ObservableObject {
     @Published var passes: [Pass] = []
     @Published var status = "Reading the ticket…"
     private let importer = Importer()
-    private lazy var container = Store.container()
 
-    func read(images: [(UIImage, String?)], text: String, link: String?) async {
+    static let maxTickets = 5
+    enum Source { case photo(Data), page(UIImage, String) }
+
+    func read(images: [Source], text: String, link: String?) async {
         var out: [Pass] = []
-        for (i, (img, extra)) in images.prefix(5).enumerated() {
-            status = images.count > 1 ? "Reading ticket \(i + 1) of \(min(images.count, 5))…" : "Reading the ticket…"
-            if let p = await importer.make(img, sourceURL: link, prefetchedText: extra) { out.append(p) }
+        for (i, src) in images.prefix(Self.maxTickets).enumerated() {
+            status = images.count > 1 ? "Reading ticket \(i + 1) of \(images.count)…" : "Reading the ticket…"
+            // One at a time, decoded small, so only one photo is ever in memory.
+            let p: Pass?
+            switch src {
+            case .photo(let data):
+                guard let img = ImageKit.downsample(data) else { continue }
+                p = await importer.make(img, sourceURL: link, prefetchedText: nil)
+            case .page(let img, let extra):
+                p = await importer.make(img, sourceURL: link, prefetchedText: extra)
+            }
+            if let p { out.append(p) }
         }
         if images.isEmpty, link != nil || !text.isEmpty {
             status = link != nil && text.isEmpty ? "Opening the link…" : "Reading the ticket…"
@@ -113,10 +178,15 @@ final class ShareModel: ObservableObject {
         state = out.isEmpty ? .nothing : .ready
     }
 
-    func save() {
+    /// Nil when the tickets couldn't be opened; the sheet says so rather than losing them.
+    @Published var saveFailed = false
+
+    func save() -> Bool {
+        guard let container = Store.openContainer() else { saveFailed = true; return false }
         let ctx = container.mainContext
         for p in passes { importer.file(p, into: ctx) }
         Store.touch()
+        return true
     }
 }
 
@@ -171,6 +241,9 @@ struct ShareCard: View {
             }
         }
         .preferredColorScheme(.dark)
+        .alert("Couldn't save to NDPass", isPresented: $model.saveFailed) {
+            Button("OK", role: .cancel) {}
+        } message: { Text("Open NDPass once, then try sharing again.") }
     }
 }
 

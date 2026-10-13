@@ -30,13 +30,13 @@ enum Seller: String, CaseIterable, Codable {
         switch self {
         case .ticketmaster: return ["ticketmaster", "safetix"]
         case .livenation: return ["live nation", "livenation"]
-        case .dice: return ["dice.fm", "dice"]
-        case .axs: return ["axs.com", "axs mobile id", " axs "]
+        case .dice: return ["dice.fm", "dice"]   // whole word: not "Paradise" or "Candice"
+        case .axs: return ["axs.com", "axs mobile id", "axs"]
         case .seatgeek: return ["seatgeek"]
         case .eventbrite: return ["eventbrite"]
         case .stubhub: return ["stubhub"]
         case .fandango: return ["fandango"]
-        case .amc: return ["amc theatres", "amctheatres", "amc "]
+        case .amc: return ["amc theatres", "amctheatres", "amc"]
         case .regal: return ["regal", "regmovies"]
         case .atom: return ["atom tickets", "atomtickets"]
         case .alamo: return ["alamo drafthouse", "drafthouse"]
@@ -107,8 +107,14 @@ enum Seller: String, CaseIterable, Codable {
     static func detect(text: String, url: String?) -> Seller? {
         if let host = url.flatMap({ URL(string: $0)?.host?.lowercased() }),
            let s = allCases.first(where: { $0.hosts.contains { host == $0 || host.hasSuffix("." + $0) } }) { return s }
-        let t = " " + text.lowercased() + " "
-        return allCases.first { s in s.clues.contains { t.contains($0) } }
+        // Whole words only: "Paradise" isn't DICE, "Candice" isn't either.
+        let t = " " + text.lowercased().replacingOccurrences(of: #"[^a-z0-9.@&' ]"#, with: " ", options: .regularExpression) + " "
+        return allCases.first { s in
+            s.clues.contains { clue in
+                let c = clue.trimmingCharacters(in: .whitespaces)
+                return t.range(of: #"(?<![a-z0-9])"# + NSRegularExpression.escapedPattern(for: c) + #"(?![a-z0-9])"#, options: .regularExpression) != nil
+            }
+        }
     }
 
     /// Open the order itself if we have its link from this seller, else your tickets there.

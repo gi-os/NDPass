@@ -26,10 +26,11 @@ enum Teams {
     /// City shorthand tickets use, spelled out the way TheSportsDB names teams.
     static let cities: [String: String] = [
         "ny": "New York", "nyc": "New York", "la": "Los Angeles", "lv": "Las Vegas", "gs": "Golden State",
-        "kc": "Kansas City", "nc": "North Carolina", "sd": "San Diego", "dc": "Washington", "sf": "San Francisco",
+        "kc": "Kansas City", "nc": "North Carolina", "sd": "San Diego", "sf": "San Francisco",
         "conn": "Connecticut", "minn": "Minnesota", "indy": "Indiana", "phx": "Phoenix", "atl": "Atlanta",
         "chi": "Chicago", "sea": "Seattle", "tor": "Toronto", "mtl": "Montreal", "bos": "Boston", "ott": "Ottawa",
         "nj": "New Jersey", "philly": "Philadelphia", "pdx": "Portland", "slc": "Utah", "hou": "Houston",
+        "lafc": "Los Angeles FC", "nycfc": "New York City FC", "a's": "Athletics", "as": "Athletics",
     ]
 
     static func expand(_ name: String) -> String {
@@ -37,9 +38,24 @@ enum Teams {
     }
 
     static func words(_ s: String) -> [String] {
-        s.lowercased().replacingOccurrences(of: #"[^a-z0-9 ]"#, with: " ", options: .regularExpression)
-            .split(separator: " ").map(String.init).filter { !["fc", "sc", "the", "of", "club", "cf"].contains($0) }
+        // "D.C." → "dc", "A's" → "as"; other punctuation splits words ("NJ/NY").
+        s.lowercased().replacingOccurrences(of: ".", with: "").replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "’", with: "")
+            .replacingOccurrences(of: #"[^a-z0-9 ]"#, with: " ", options: .regularExpression)
+            .split(separator: " ").map(String.init).filter { !["fc", "sc", "the", "of", "club", "cf", "afc"].contains($0) }
     }
+
+    /// Whether a team's name is surely what the ticket means: the same words, or the ticket's
+    /// words all in the team's name and ending on its nickname ("Liberty", "NY Liberty" →
+    /// New York Liberty). "Manchester City" is not New York City FC; "LSU Tigers" is not Detroit.
+    static func confident(_ ticket: String, _ team: String) -> Bool {
+        let a = words(expand(ticket)), b = words(expand(team))
+        guard !a.isEmpty, !b.isEmpty else { return false }
+        if a == b { return true }
+        guard let la = a.last, la == b.last else { return false }
+        return Set(a).isSubset(of: Set(b))
+    }
+
+    static func exact(_ ticket: String, _ team: String) -> Bool { words(expand(ticket)) == words(expand(team)) }
 
     /// How well a team's name fits what the ticket says: the nickname (last word) counts
     /// most, then any shared words. 0 means no match.
@@ -60,12 +76,12 @@ enum Teams {
         if let last = cleaned.split(separator: " ").last, last.count > 3, String(last) != cleaned {
             out += await query(String(last), key: key)
         }
-        return out.filter { fit(name, $0.name) > 0 }.sorted { fit(name, $0.name) > fit(name, $1.name) }
+        return out.filter { confident(name, $0.name) }.sorted { exact(name, $0.name) && !exact(name, $1.name) }
     }
 
     /// Every team TheSportsDB has for a name, for picking by hand.
     static func lookup(_ q: String, key: String?) async -> [Team] {
-        let local = TeamColors.find(q).map(\.team)
+        let local = TeamColors.search(q).map(\.team)
         guard let key else { return local }
         let remote = await lookupRemote(q, key: key)
         return local + remote.filter { r in !local.contains { $0.name == r.name } }
@@ -75,24 +91,28 @@ enum Teams {
         let cleaned = expand(q).trimmingCharacters(in: .whitespaces)
         var out = await query(cleaned, key: key)
         if out.isEmpty, let last = cleaned.split(separator: " ").last, last.count > 3 { out = await query(String(last), key: key) }
-        let roster = await womensRoster(key: key).filter { fit(q, $0.name) >= 5 }
+        let roster = await womensRoster(key: key).filter { confident(q, $0.name) }
         return roster + out.filter { t in !roster.contains { $0.name == t.name } }
     }
 
     /// Women's leagues in the US and Canada, whole rosters, so a ticket's short name finds
     /// its team even when a men's or college team shares the nickname.
     static let womensRosterLeagues = ["WNBA", "American NWSL", "American PWHL"]
-    private static var rosters: [Team]?
+    private actor RosterCache {
+        var teams: [Team]?
+        func set(_ t: [Team]) { teams = t }
+    }
+    private static let rosters = RosterCache()
 
     static func womensRoster(key: String) async -> [Team] {
-        if let r = rosters { return r }
+        if let r = await rosters.teams { return r }
         var all: [Team] = []
         for l in womensRosterLeagues {
             guard var c = URLComponents(string: "https://www.thesportsdb.com/api/v1/json/\(key)/search_all_teams.php") else { continue }
             c.queryItems = [URLQueryItem(name: "l", value: l)]
             if let u = c.url { all += await teams(at: u, fallbackName: l).map { var t = $0; t.female = true; return t } }
         }
-        if !all.isEmpty { rosters = all }   // a refused request isn't a real empty roster
+        if !all.isEmpty { await rosters.set(all) }   // a refused request isn't a real empty roster
         return all
     }
 
@@ -149,7 +169,7 @@ enum Teams {
         let roster = await rr
         // Women's teams from the league rosters, best fit first, ahead of anything else.
         func rosterHits(_ n: String) -> [Team] {
-            roster.filter { fit(n, $0.name) >= 5 }.sorted { fit(n, $0.name) > fit(n, $1.name) }
+            roster.filter { confident(n, $0.name) }.sorted { exact(n, $0.name) && !exact(n, $1.name) }
         }
         let wa = rosterHits(a), wb = rosterHits(b)
         la = wa + la.filter { t in !wa.contains { $0.name == t.name } }
@@ -161,17 +181,22 @@ enum Teams {
             if (aw && !am) || (bw && !bm) { women = true }
             if aw && bw && !(am && bm) { women = true }
         }
-        func pick(_ l: [Team]) -> Team? {
+        func pool(_ l: [Team]) -> [Team] {
             let sameGender = l.filter { $0.female == women }
-            return (sameGender.isEmpty ? l : sameGender).first
+            return sameGender.isEmpty ? l : sameGender
         }
-        var ta = pick(la), tb = pick(lb)
-        // Prefer the league the other side plays in, when the first pick disagrees.
-        if let x = ta, let y = tb, x.league != y.league {
-            if let alt = la.first(where: { $0.female == women && $0.league == y.league }) { ta = alt }
-            else if let alt = lb.first(where: { $0.female == women && $0.league == x.league }) { tb = alt }
+        let pa = pool(la), pb = pool(lb)
+        /// One team, or none: the other side's league settles "Kings" (NHL or NBA); if it
+        /// still isn't clear, no crest beats the wrong one.
+        func pick(_ p: [Team], other: [Team], name: String) -> Team? {
+            var c = p
+            let leagues = Set(other.map(\.league))
+            if c.count > 1 { let same = c.filter { leagues.contains($0.league) }; if !same.isEmpty { c = same } }
+            if c.count > 1 { let ex = c.filter { exact(name, $0.name) }; if ex.count == 1 { c = ex } }
+            let names = Set(c.map(\.name))
+            return names.count == 1 ? c.first : nil
         }
-        return (ta, tb)
+        return (pick(pa, other: pb, name: a), pick(pb, other: pa, name: b))
     }
 
     /// The crest's main color: the most common saturated hue, skipping white, black and

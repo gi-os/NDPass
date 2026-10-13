@@ -115,7 +115,7 @@ struct TonightView: View {
             HStack(alignment: .top, spacing: 8) {
                 FieldLabel(title: "Time", value: p.timeLabel, mono: true)
                 FieldLabel(title: g.count > 1 ? "Seats" : "Seat", value: Showings.seats(g), mono: true)
-                FieldLabel(title: "Date", value: p.start.map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? (p.dateTBD ? "TBD" : p.date), mono: true)
+                FieldLabel(title: "Date", value: (p.start ?? PassTimes.day(p.date)).map { $0.formatted(.dateTime.month(.abbreviated).day()) } ?? "TBD", mono: true)
             }
             HStack(spacing: 10) {
                 if let seller = p.seller, seller.rotatingCode, !g.contains(where: { $0.scannedCode != nil }) {
@@ -148,10 +148,11 @@ struct TonightView: View {
     }
 
     private var empty: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("NO TICKETS YET").font(Theme.mono(12)).tracking(1.4).foregroundStyle(Theme.amber)
-            Text("Photograph a stub").font(Theme.serif(44)).foregroundStyle(Theme.ink)
-            Text("Tap + and point the camera at a ticket, or pick a screenshot. NDPass reads the film, theater, date, time, seat and price.")
+        let first = passes.isEmpty
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(first ? "NO TICKETS YET" : "NOTHING COMING UP").font(Theme.mono(12)).tracking(1.4).foregroundStyle(Theme.amber)
+            Text(first ? "Add a ticket" : "Add your next one").font(Theme.serif(44)).foregroundStyle(Theme.ink)
+            Text("Tap + to photograph a ticket, pick a screenshot or type it in. You can also share an e-ticket, PDF or confirmation email to NDPass from any app.")
                 .font(Theme.sans(15)).foregroundStyle(Theme.ink.opacity(0.85))
         }
         .padding(24)

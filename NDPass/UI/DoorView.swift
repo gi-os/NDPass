@@ -41,6 +41,7 @@ struct DoorView: View {
                 .background(.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .shadow(color: Theme.paperInk.opacity(0.18), radius: 24, y: 14)
                 if passes.count > 1 || !(p?.seat.isEmpty ?? true) {
+                    ScrollView(.horizontal) {
                     HStack(spacing: 10) {
                         ForEach(Array(passes.enumerated()), id: \.offset) { i, t in
                             Button { withAnimation(.snappy) { index = i } } label: {
@@ -52,6 +53,10 @@ struct DoorView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, 2)
+                    }
+                    .scrollIndicators(.hidden)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 Label("Brightness is up while this is open", systemImage: "sun.max").font(Theme.sans(14)).foregroundStyle(Theme.paperMuted)
                 Spacer(minLength: 0)
@@ -75,7 +80,7 @@ struct DoorView: View {
         var parts: [String] = []
         if !p.venue.isEmpty { parts.append(p.venue) }
         if let s = p.start { parts.append(s.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) }
-        if !p.time.isEmpty { parts.append(p.time) }
+        if !p.timeTBD { parts.append(p.time) }
         if p.kind == .transit {
             if !p.trip.isEmpty { parts.append([p.carrier, p.trip].filter { !$0.isEmpty }.joined(separator: " ")) }
             if !p.gate.isEmpty { parts.append("\(p.transitMode.gateLabel) \(p.gate)") }

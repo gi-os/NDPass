@@ -1,1 +1,1 @@
-Every stub you keep, read from a photo and shown at the door.
+Photograph a ticket, share an e-ticket, or type it in. NDPass keeps it, counts down to it, and shows it at the door.

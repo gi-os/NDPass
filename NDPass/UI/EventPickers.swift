@@ -48,6 +48,7 @@ struct ArtistPicker: View {
             var art: Data?
             if let u = a.photo, let (d, _) = try? await URLSession.shared.data(from: u) { art = d }
             for p in passes { p.title = a.name; if let art { p.art = art } }
+            if let g = passes.first?.group { EventArt.markPicked(g) }
             try? ctx.save()
             dismiss()
         }
@@ -136,6 +137,7 @@ struct TeamPicker: View {
         Task {
             let art = await EventArt.game(a, b)
             for p in passes { p.title = "\(a.name) vs \(b.name)"; if let art { p.art = art } }
+            if let g = passes.first?.group { EventArt.markPicked(g) }
             try? ctx.save()
             dismiss()
         }

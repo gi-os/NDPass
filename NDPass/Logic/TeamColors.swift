@@ -22,19 +22,19 @@ enum TeamColors {
         .init("Chicago Cubs", "MLB", false, [0xCC3433, 0x0E3386]),
         .init("Chicago White Sox", "MLB", false, [0x000000, 0xC4CED4]),
         .init("Cincinnati Reds", "MLB", false, [0xC6011F, 0x000000]),
-        .init("Cleveland Indians", "MLB", false, [0xE31937, 0x002B5C]),
+        .init("Cleveland Guardians", "MLB", false, [0x0C2340, 0xE31937]),
         .init("Colorado Rockies", "MLB", false, [0x333366, 0x231F20]),
         .init("Detroit Tigers", "MLB", false, [0x0C2C56]),
         .init("Houston Astros", "MLB", false, [0x002D62, 0xEB6E1F]),
         .init("Kansas City Royals", "MLB", false, [0x004687, 0xC09A5B]),
-        .init("Los Angeles Angels of Anaheim", "MLB", false, [0xBA0021, 0x003263]),
+        .init("Los Angeles Angels", "MLB", false, [0xBA0021, 0x003263]),
         .init("Los Angeles Dodgers", "MLB", false, [0xEF3E42, 0x005A9C]),
         .init("Miami Marlins", "MLB", false, [0xFF6600, 0x0077C8]),
         .init("Milwaukee Brewers", "MLB", false, [0x0A2351, 0xB6922E]),
         .init("Minnesota Twins", "MLB", false, [0x002B5C, 0xD31145]),
         .init("New York Mets", "MLB", false, [0xFF5910, 0x002D72]),
         .init("New York Yankees", "MLB", false, [0xE4002B, 0x003087]),
-        .init("Oakland Athletics", "MLB", false, [0x003831, 0xEFB21E]),
+        .init("Athletics", "MLB", false, [0x003831, 0xEFB21E]),
         .init("Philadelphia Phillies", "MLB", false, [0x284898, 0xE81828]),
         .init("Pittsburgh Pirates", "MLB", false, [0xFDB827, 0x000000]),
         .init("San Diego Padres", "MLB", false, [0x002D62, 0xFEC325]),
@@ -58,7 +58,7 @@ enum TeamColors {
         .init("Houston Dynamo", "MLS", false, [0xF36600, 0x2E2926]),
         .init("Inter Miami CF", "MLS", false, [0xF7B5CD, 0x231F20]),
         .init("LA Galaxy", "MLS", false, [0x00245D, 0x004689]),
-        .init("LAFC", "MLS", false, [0x000000, 0xC39E6D]),
+        .init("Los Angeles FC", "MLS", false, [0x000000, 0xC39E6D]),
         .init("Minnesota United FC", "MLS", false, [0xCFD4D8, 0x6CADDF]),
         .init("Nashville SC", "MLS", false, [0xECE83A, 0x1F1646]),
         .init("New England Revolution", "MLS", false, [0x0A2141, 0xD80016]),
@@ -99,7 +99,7 @@ enum TeamColors {
         .init("New Orleans Saints", "NFL", false, [0x9F8958, 0x000000]),
         .init("New York Giants", "NFL", false, [0x0B2265, 0xA71930]),
         .init("New York Jets", "NFL", false, [0x203731]),
-        .init("Oakland Raiders", "NFL", false, [0xA5ACAF, 0x000000]),
+        .init("Las Vegas Raiders", "NFL", false, [0x000000, 0xA5ACAF]),
         .init("Philadelphia Eagles", "NFL", false, [0x004953, 0xA5ACAF]),
         .init("Pittsburgh Steelers", "NFL", false, [0x000000, 0xFFB612]),
         .init("San Francisco 49ers", "NFL", false, [0xAA0000, 0xB3995D]),
@@ -225,9 +225,14 @@ enum TeamColors {
         return e.team
     }
 
-    /// Teams whose names fit what the ticket says, best first.
+    /// Teams that are surely what the ticket means (see Teams.confident), exact names first.
     static func find(_ name: String) -> [Entry] {
-        all.map { ($0, Teams.fit(name, $0.name)) }.filter { $0.1 >= 5 }.sorted { $0.1 > $1.1 }.map(\.0)
+        all.filter { Teams.confident(name, $0.name) }.sorted { Teams.exact(name, $0.name) && !Teams.exact(name, $1.name) }
+    }
+
+    /// Looser matches for the Pick the teams search box: any team sharing a word.
+    static func search(_ q: String) -> [Entry] {
+        all.map { ($0, Teams.fit(q, $0.name)) }.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.map(\.0)
     }
 
     /// Both sides, from the same gender: the women's team when the ticket says so or when
@@ -237,13 +242,20 @@ enum TeamColors {
         var women = Teams.isWomens(context)
         if !women, la.contains(where: \.female), lb.contains(where: \.female),
            !(la.contains { !$0.female } && lb.contains { !$0.female }) { women = true }
-        func pick(_ l: [Entry], other: [Entry]) -> Entry? {
+        func pool(_ l: [Entry]) -> [Entry] {
             let g = l.filter { $0.female == women }
-            let pool = g.isEmpty ? l : g
-            // Same league as the other side when there's a choice.
-            if let o = other.first(where: { $0.female == women }), let same = pool.first(where: { $0.league == o.league }) { return same }
-            return pool.first
+            return g.isEmpty ? l : g
         }
-        return (pick(la, other: lb), pick(lb, other: la))
+        let pa = pool(la), pb = pool(lb)
+        /// One team or none: the other side's league settles "Kings" (NHL or NBA); if it's
+        /// still unclear, the ticket keeps its own name and colors from it.
+        func pick(_ p: [Entry], other: [Entry], name: String) -> Entry? {
+            var c = p
+            let leagues = Set(other.map(\.league))
+            if c.count > 1 { let same = c.filter { leagues.contains($0.league) }; if !same.isEmpty { c = same } }
+            if c.count > 1 { let ex = c.filter { Teams.exact(name, $0.name) }; if ex.count == 1 { c = ex } }
+            return c.count == 1 ? c.first : nil
+        }
+        return (pick(pa, other: pb, name: a), pick(pb, other: pa, name: b))
     }
 }

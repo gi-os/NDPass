@@ -21,7 +21,7 @@ struct NDPassApp: App {
         }
         .onChange(of: phase) { _, p in
             // The share sheet saved into the same database: reopen it so the new ticket shows.
-            guard p == .active, !Demo.active, Store.stamp != stamp else { return }
+            guard p == .active, !Demo.active, Store.stamp != stamp || Store.openFailed else { return }
             stamp = Store.stamp
             container = Store.container()
         }

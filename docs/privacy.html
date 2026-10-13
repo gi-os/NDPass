@@ -1,17 +1,26 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NDPass privacy policy</title><link rel="stylesheet" href="style.css"></head><body><main>
-<p class="eyebrow">Privacy policy · updated September 2026</p>
+<p class="eyebrow">Privacy policy · updated October 2026</p>
 <h1>NDPass privacy</h1>
-<p>NDPass has no account, no server and no analytics. Your tickets, photos and keys stay on your iPhone.</p>
+<p>NDPass has no account, no server and no analytics. Your tickets and photos stay on your iPhone, and NDPass never sees them.</p>
 <h2>What stays on your phone</h2>
-<p>Tickets, stub photos, posters and reminders are stored on your device. API keys you enter are stored in the iOS Keychain. Uninstalling the app deletes them.</p>
+<p>Tickets, stub photos, art, reminders and settings are stored on your device. Deleting NDPass deletes them. API keys you enter are kept in the iOS Keychain on this phone; iOS may keep Keychain items after the app is deleted, so clear the key fields in Settings first if you want them gone.</p>
+<p>Tickets are read on your iPhone (Apple's Vision framework, and Apple Intelligence when it's on). Nothing is sent anywhere to read them unless you choose Claude, below.</p>
 <h2>What leaves your phone, and why</h2>
+<p>Only what's needed for a feature, sent straight to the service named. NDPass doesn't receive or keep any of it.</p>
 <ul>
-<li><strong>Ticket photos, to Anthropic.</strong> If you allow it, when you scan a stub its photo is sent to Anthropic's Claude API, using your own API key, so the ticket details can be read. NDPass asks before the first scan and the setting can be turned off in Settings. Anthropic's handling of API data is described at <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a>.</li>
-<li><strong>Film titles, to TMDB.</strong> If you add a TMDB key, the film title on a ticket is sent to The Movie Database to find its poster. See <a href="https://www.themoviedb.org/privacy-policy">themoviedb.org/privacy-policy</a>.</li>
-<li><strong>Team names, to TheSportsDB.</strong> If you add a TheSportsDB key, the team names on a game ticket are sent to TheSportsDB to find their crests and colors. See <a href="https://www.thesportsdb.com">thesportsdb.com</a>.</li>
-<li><strong>Artist names, to Deezer and Apple.</strong> The headliner on a concert ticket is sent to Deezer's public catalog to find the artist's photo, and to Apple's iTunes Search API for album art if Deezer has none. See <a href="https://www.deezer.com/legal/personal-datas">deezer.com</a> and <a href="https://www.apple.com/legal/privacy/">apple.com/legal/privacy</a>.</li>
-<li><strong>Venue names, to your maps app.</strong> Tapping a venue opens Apple Maps or Google Maps with its name.</li>
+<li><strong>Ticket photos, to Anthropic</strong>, only if you set Read tickets to Claude and add your own Anthropic API key. NDPass asks first, and you can turn it off in Settings. See <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a>.</li>
+<li><strong>Film titles, to TMDB</strong>, if you add a TMDB key: to find the film's poster and details. See <a href="https://www.themoviedb.org/privacy-policy">themoviedb.org/privacy-policy</a>.</li>
+<li><strong>Team names, to TheSportsDB</strong>, if you add a TheSportsDB key: to find team crests. See <a href="https://www.thesportsdb.com">thesportsdb.com</a>.</li>
+<li><strong>Artist names, to Deezer</strong>: the headliner on a concert ticket, to find the artist's photo. See <a href="https://www.deezer.com/legal/personal-datas">deezer.com</a>.</li>
+<li><strong>Venue names, to Apple Maps</strong>: the Stats map looks up each venue once to place it. Tapping a venue opens Apple Maps or Google Maps with its name.</li>
+<li><strong>Links you share</strong>: when you share a link to an e-ticket, NDPass opens that page to read the ticket.</li>
+</ul>
+<h2>Permissions</h2>
+<ul>
+<li><strong>Camera and photos</strong>: to read the tickets you photograph or pick.</li>
+<li><strong>Notifications</strong>: reminders before your showings.</li>
+<li><strong>Calendar</strong>, only if you turn it on: to add your upcoming tickets as events, after checking your calendar so it doesn't add one you already have. Your calendar stays on your phone.</li>
 </ul>
 <p>NDPass does not sell data, show ads, or track you across apps and websites.</p>
 <h2>Contact</h2>

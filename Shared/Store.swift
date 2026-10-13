@@ -9,12 +9,29 @@ enum Store {
     static var folder: URL? { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) }
     static var defaults: UserDefaults { UserDefaults(suiteName: group) ?? .standard }
 
-    static func container() -> ModelContainer {
-        if let dir = folder {
-            let url = dir.appendingPathComponent("NDPass.store")
+    static var storeURL: URL? { folder?.appendingPathComponent("NDPass.store") }
+
+    /// The ticket database, or nil if it can't be opened (tried twice: the app and the share
+    /// sheet may be opening it at the same moment). Never a different file instead: tickets
+    /// saved into another store would be lost.
+    static func openContainer() -> ModelContainer? {
+        guard let url = storeURL else { return nil }
+        for attempt in 0..<2 {
             if let c = try? ModelContainer(for: Pass.self, configurations: ModelConfiguration(url: url)) { return c }
+            if attempt == 0 { Thread.sleep(forTimeInterval: 0.3) }
         }
-        return try! ModelContainer(for: Pass.self)
+        return nil
+    }
+
+    /// Set when the database couldn't be opened; the app says so instead of crashing.
+    nonisolated(unsafe) static var openFailed = false
+
+    /// For the app: the database, or an empty in-memory one (with `openFailed` set) so the
+    /// app can still open and explain.
+    static func container() -> ModelContainer {
+        if let c = openContainer() { openFailed = false; return c }
+        openFailed = true
+        return try! ModelContainer(for: Pass.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
     }
 
     /// Bumped by the share sheet after it saves; the app reloads when it sees a new value.
@@ -38,7 +55,9 @@ enum Store {
     @MainActor
     static func mergeOld(into container: ModelContainer) -> Int {
         let d = defaults
-        guard !d.bool(forKey: "mergedV2") else { return 0 }
+        guard !d.bool(forKey: "mergedV2"), !openFailed else { return 0 }
+        // A fresh install has no old stores: nothing to do.
+        guard !oldStores.isEmpty else { d.set(true, forKey: "mergedV2"); return 0 }
         let ctx = container.mainContext
         var have: [UUID: Pass] = [:]
         for p in (try? ctx.fetch(FetchDescriptor<Pass>())) ?? [] { have[p.id] = p }
@@ -57,8 +76,10 @@ enum Store {
                 ctx.insert(p); have[p.id] = p; added += 1
             }
         }
-        try? ctx.save()
-        d.set(true, forKey: "mergedV2")
+        do {
+            try ctx.save()
+            d.set(true, forKey: "mergedV2")   // only once it's really saved
+        } catch {}
         return added
     }
 
@@ -76,6 +97,10 @@ enum Store {
                 guard fm.fileExists(atPath: src.path) else { continue }
                 try? fm.copyItem(at: src, to: URL(fileURLWithPath: target.path + suffix))
             }
+            // Photos bigger than ~100 KB live beside the store, in a folder named after it.
+            let oldSupport = old.deletingLastPathComponent().appendingPathComponent(".default_SUPPORT")
+            let newSupport = dir.appendingPathComponent(".NDPass_SUPPORT")
+            if fm.fileExists(atPath: oldSupport.path), !fm.fileExists(atPath: newSupport.path) { try? fm.copyItem(at: oldSupport, to: newSupport) }
         }
         for k in ["reader", "aiConsent", "mapsApp"] {
             if let v = UserDefaults.standard.object(forKey: k), d.object(forKey: k) == nil { d.set(v, forKey: k) }

@@ -2,18 +2,6 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
-/// Groups of tickets for the same showing, upcoming first by showtime or archive newest first.
-enum Showings {
-    static func groups(_ passes: [Pass], archived: Bool?) -> [[Pass]] {
-        let filtered = archived.map { a in passes.filter { $0.isArchived == a } } ?? passes
-        let g = Dictionary(grouping: filtered, by: \.group).values.map { $0.sorted { $0.seat < $1.seat } }
-        let upcoming = archived == false
-        return g.sorted { a, b in upcoming ? a[0].sortDate < b[0].sortDate : a[0].sortDate > b[0].sortDate }
-    }
-
-    static func seats(_ g: [Pass]) -> String { g.map(\.seat).filter { !$0.isEmpty }.joined(separator: " ") }
-}
-
 /// The + button: photograph a stub or pick a screenshot, with the reading log while it works.
 struct ScanMenu<Label: View>: View {
     var onAdded: (Pass) -> Void = { _ in }
@@ -26,23 +14,26 @@ struct ScanMenu<Label: View>: View {
     @State private var log = false
     @State private var consent = false
     @State private var next: (() -> Void)?
+    @State private var typing: Pass?
 
     var body: some View {
         Menu {
             Button { ask { camera = true } } label: { SwiftUI.Label("Photograph a stub", systemImage: "camera") }
             Button { ask { photos = true } } label: { SwiftUI.Label("Pick a photo or screenshot", systemImage: "photo") }
+            Button { typing = Pass() } label: { SwiftUI.Label("Type it in", systemImage: "keyboard") }
         } label: { label() }
         // Pick as many as you like; each is read and filed in turn.
         .photosPicker(isPresented: $photos, selection: $items, maxSelectionCount: 20, selectionBehavior: .ordered, matching: .images)
         .onChange(of: items) { _, picked in
             guard !picked.isEmpty else { return }
             Task {
-                var images: [UIImage] = []
+                // File data first (small), decoded one at a time later, at the size needed.
+                var files: [Data] = []
                 for it in picked {
-                    if let d = try? await it.loadTransferable(type: Data.self), let img = UIImage(data: d) { images.append(img) }
+                    if let d = try? await it.loadTransferable(type: Data.self) { files.append(d) }
                 }
                 items = []
-                await runAll(images)
+                await runAll(files)
             }
         }
         .fullScreenCover(isPresented: $camera) {
@@ -58,6 +49,7 @@ struct ScanMenu<Label: View>: View {
             .presentationDetents([.large])
         }
         .sheet(isPresented: $log) { ScanLog().environmentObject(importer).presentationDetents([.medium]).presentationBackground(Theme.bg) }
+        .sheet(item: $typing) { p in EditView(passes: [p], isNew: true, onSaved: onAdded).environmentObject(importer) }
     }
 
     private func ask(_ then: @escaping () -> Void) {
@@ -65,19 +57,19 @@ struct ScanMenu<Label: View>: View {
         if ReaderChoice.current == .onDevice || AIConsent.asked { then() } else { next = then; consent = true }
     }
 
-    private func runAll(_ images: [UIImage]) async {
-        guard images.count > 1 else { if let img = images.first { await run(img) }; return }
+    private func runAll(_ files: [Data]) async {
+        guard files.count > 1 else { if let d = files.first, let img = ImageKit.downsample(d) { await run(img) }; return }
         log = true
         var last: Pass?
         var added = 0
-        for (i, img) in images.enumerated() {
+        for d in files {
+            guard let img = ImageKit.downsample(d) else { continue }
             if let p = await importer.add(img, into: ctx) { last = p; added += 1 }
-            _ = i
         }
         if let last { onAdded(last) }
-        importer.note("Added \(added) of \(images.count) tickets.")
+        importer.note("Added \(added) of \(files.count) tickets.")
         try? await Task.sleep(nanoseconds: 1_200_000_000)
-        if added == images.count { log = false }
+        if added == files.count { log = false }
     }
 
     private func run(_ img: UIImage) async {

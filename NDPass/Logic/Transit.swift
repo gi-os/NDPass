@@ -5,7 +5,9 @@ enum Transit {
     /// Station and airport codes stay in capitals; names get Title Case when read in all caps.
     static func place(_ s: String) -> String {
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        if (2...4).contains(t.count), t.allSatisfy(\.isLetter) { return t.uppercased() }
+        // A code: printed in capitals ("NYP", "JFK"), or read back in lowercase ("nyp").
+        // A name written normally ("Rome", "Bath") stays a name.
+        if (2...4).contains(t.count), t.allSatisfy(\.isLetter), t == t.uppercased() || t == t.lowercased() { return t.uppercased() }
         return PassTimes.display(t)
     }
 

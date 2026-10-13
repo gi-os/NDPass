@@ -3,18 +3,32 @@ import UIKit
 /// Poster art for tickets that aren't films: two team crests cut across a diagonal for a
 /// game, a drawn note for a concert. Best effort; any failure means the ticket shows its photo.
 enum EventArt {
+    /// Showings whose art was picked by hand (Pick the teams / Pick the artist): left alone.
+    static let pickedKey = "pickedArt"
+    static func markPicked(_ group: UUID) {
+        let d = Store.defaults
+        var s = Set(d.stringArray(forKey: pickedKey) ?? []); s.insert(group.uuidString)
+        d.set(Array(s), forKey: pickedKey)
+    }
+
     /// Art for a game or concert, and the proper name while we're at it: the teams as the
     /// league spells them, the artist as they're billed.
-    static func decorate(_ p: Pass) async {
+    /// On the main actor: the network and drawing happen elsewhere (`artAndName`), the ticket
+    /// is only touched here. `rename` is for a ticket being read now; later passes only fill
+    /// in missing art and never change a title.
+    @MainActor
+    static func decorate(_ p: Pass, rename: Bool = true) async {
         guard p.kind != .movie else { return }
         if p.kind == .transit {
             p.art = symbolCard(p.transitMode.symbol, background: UIColor(red: 0.05, green: 0.08, blue: 0.14, alpha: 1)).pngData()
             return
         }
         let (data, name) = await artAndName(for: p.kind, title: p.title, context: p.venue)
+        guard !p.isDeleted else { return }
         if let data { p.art = data }
+        guard rename else { return }
         if let name, !name.isEmpty { p.title = name }
-        else if p.kind != .transit { p.title = PassTimes.display(p.title) }
+        else { p.title = PassTimes.display(p.title) }
     }
 
     /// Draw a game from two teams picked by hand.
@@ -41,9 +55,10 @@ enum EventArt {
         case .event: return (symbolCard("ticket.fill", background: UIColor(red: 0.06, green: 0.12, blue: 0.10, alpha: 1)).pngData(), nil)
         case .transit: return (symbolCard("tram.fill", background: UIColor(red: 0.05, green: 0.08, blue: 0.14, alpha: 1)).pngData(), nil)
         case .concert:
-            // The artist's photo, full frame.
+            // The artist's photo, full frame, when Deezer has exactly this artist. Otherwise no
+            // art yet (the cover shows a gradient), and it's tried again next time.
             if let hit = await Artists.photo(for: title) { return (hit.image.jpegData(compressionQuality: 0.88), hit.name) }
-            return (musicCard().pngData(), nil)
+            return (nil, nil)
         case .sports:
             guard let (a, b) = Matchup.split(title) else { return (nil, nil) }
             // Built-in team colors first: each half in its team's colors, the name in type. No
@@ -86,7 +101,7 @@ enum EventArt {
             return usable ?? cs.first ?? fallback
         }
         let ca = base(home.2, fallback: warm[0]), cb = base(away.2, fallback: warm[1])
-        return UIGraphicsImageRenderer(size: size).image { ctx in
+        return ImageKit.renderer(size).image { ctx in
             let c = ctx.cgContext
             func fill(_ color: UIColor, _ pts: [CGPoint]) {
                 c.saveGState()
@@ -121,7 +136,7 @@ enum EventArt {
 
     static func matchCard(_ home: String, _ away: String) -> UIImage {
         let size = CGSize(width: 600, height: 900)
-        return UIGraphicsImageRenderer(size: size).image { ctx in
+        return ImageKit.renderer(size).image { ctx in
             let c = ctx.cgContext
             UIColor(red: 0.08, green: 0.05, blue: 0.03, alpha: 1).setFill(); c.fill(CGRect(origin: .zero, size: size))
             UIColor(red: 0.94, green: 0.54, blue: 0.24, alpha: 1).setFill()
@@ -142,7 +157,7 @@ enum EventArt {
 
     static func versus(_ home: UIImage, _ away: UIImage) -> UIImage {
         let size = CGSize(width: 600, height: 900)
-        return UIGraphicsImageRenderer(size: size).image { ctx in
+        return ImageKit.renderer(size).image { ctx in
             let c = ctx.cgContext
             UIColor(red: 0.07, green: 0.07, blue: 0.13, alpha: 1).setFill(); c.fill(CGRect(origin: .zero, size: size))
             UIColor(red: 0.12, green: 0.12, blue: 0.22, alpha: 1).setFill()
@@ -161,7 +176,7 @@ enum EventArt {
     /// A dark card with one big symbol: shows, events and trips, which have no poster to find.
     static func symbolCard(_ symbol: String, background: UIColor) -> UIImage {
         let size = CGSize(width: 600, height: 900)
-        return UIGraphicsImageRenderer(size: size).image { ctx in
+        return ImageKit.renderer(size).image { ctx in
             let c = ctx.cgContext
             let top = background, bottom = background.blended(with: .black, 0.5)
             let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [top.cgColor, bottom.cgColor] as CFArray, locations: [0, 1])!

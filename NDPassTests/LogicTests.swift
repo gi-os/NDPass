@@ -21,7 +21,13 @@ final class TicketDateTests: XCTestCase {
     }
 
     func testInventedYearIsIgnored() {
-        XCTAssertEqual(TicketDate.resolveFromModel("2024-12-18", today: day(2026, 9, 28), calendar: cal), "2026-12-18")
+        // A printed year is kept: old stubs keep their own year…
+        XCTAssertEqual(TicketDate.resolveFromModel("2024-12-18", today: day(2026, 9, 28), calendar: cal), "2024-12-18")
+        XCTAssertEqual(TicketDate.resolveFromModel("2019-05-04", evidence: "FILM FORUM 05/04/2019 7:00PM", today: day(2026, 9, 28), calendar: cal), "2019-05-04")
+        // …unless the ticket's own text doesn't have it (the model made it up)…
+        XCTAssertEqual(TicketDate.resolveFromModel("2024-12-18", evidence: "DEC 18 7:30PM SEAT F12", today: day(2026, 9, 28), calendar: cal), "2026-12-18")
+        // …or it's years ahead.
+        XCTAssertEqual(TicketDate.resolveFromModel("2031-12-18", today: day(2026, 9, 28), calendar: cal), "2026-12-18")
         XCTAssertEqual(TicketDate.resolveFromModel("2025-12-18", today: day(2026, 9, 28), calendar: cal), "2025-12-18")
     }
 
@@ -187,6 +193,20 @@ final class TeamColorTests: XCTestCase {
         XCTAssertEqual(a?.name, "New York Knicks")
         XCTAssertEqual(b?.name, "Boston Celtics")
     }
+    func testNoWrongTeams() {
+        // Names that only share a word with a team in the list keep their own name.
+        XCTAssertNil(TeamColors.matchup("Manchester City", "Arsenal", context: "").0)
+        XCTAssertNil(TeamColors.matchup("LSU Tigers", "Alabama", context: "").0)
+        XCTAssertNil(TeamColors.matchup("Durham Bulls", "Norfolk Tides", context: "").0)
+        XCTAssertNil(TeamColors.matchup("Oregon Ducks", "USC Trojans", context: "").0)
+        XCTAssertEqual(TeamColors.matchup("DC United", "NY Red Bulls", context: "").0?.name, "D.C. United")
+        XCTAssertEqual(TeamColors.matchup("DC United", "NY Red Bulls", context: "").1?.name, "New York Red Bulls")
+        // The other side's league settles a shared nickname.
+        XCTAssertEqual(TeamColors.matchup("Kings", "Ducks", context: "").0?.name, "Los Angeles Kings")
+        XCTAssertEqual(TeamColors.matchup("LAFC", "LA Galaxy", context: "").0?.name, "Los Angeles FC")
+        XCTAssertEqual(TeamColors.matchup("Las Vegas Raiders", "Chiefs", context: "").0?.name, "Las Vegas Raiders")
+    }
+
     func testEveryEntryHasColors() {
         XCTAssertTrue(TeamColors.all.allSatisfy { !$0.hex.isEmpty })
     }
@@ -296,5 +316,120 @@ final class KindsTests: XCTestCase {
             if sym == .qr { XCTAssertLessThanOrEqual(w, 300) } else { XCTAssertLessThanOrEqual(w, 900, "\(sym)") }
             XCTAssertGreaterThan(img.size.width, 60)
         }
+    }
+}
+
+
+final class ReleaseFixTests: XCTestCase {
+    func testTimes() {
+        XCTAssertEqual(PassTimes.normalizeTime("09:00"), "9:00 AM")     // a zero-padded 24-hour morning
+        XCTAssertEqual(PassTimes.normalizeTime("9:00"), "9:00 PM")      // a bare showtime
+        XCTAssertEqual(PassTimes.normalizeTime("7 PM"), "7:00 PM")
+        XCTAssertEqual(PassTimes.normalizeTime("7pm"), "7:00 PM")
+        XCTAssertEqual(PassTimes.normalizeTime("6:30 AM", literal: true), "6:30 AM")
+    }
+
+    func testTitleCaseKeepsNames() {
+        XCTAssertEqual(PassTimes.display("AC/DC"), "AC/DC")
+        XCTAssertEqual(PassTimes.display("TD GARDEN"), "TD Garden")
+        XCTAssertEqual(PassTimes.display("AT&T STADIUM"), "AT&T Stadium")
+        XCTAssertEqual(PassTimes.display("T-MOBILE ARENA"), "T-Mobile Arena")
+        XCTAssertEqual(PassTimes.display("M3GAN 2.0"), "M3GAN 2.0")
+        XCTAssertEqual(PassTimes.display("THE MCKITTRICK HOTEL"), "The McKittrick Hotel")
+        XCTAssertEqual(PassTimes.display("NJ TRANSIT"), "NJ Transit")
+        XCTAssertEqual(PassTimes.display("SAN DIEGO"), "San Diego")
+        XCTAssertEqual(PassTimes.display("RRR"), "RRR")
+        XCTAssertEqual(PassTimes.display("Rome"), "Rome")
+        XCTAssertEqual(Transit.place("Rome"), "Rome")
+    }
+
+    func testPrices() {
+        XCTAssertEqual(Stats.price("$17.00"), 17)
+        XCTAssertEqual(Stats.price("€12,50"), 12.5)
+        XCTAssertEqual(Stats.price("2 x $17.00"), 17)
+        XCTAssertEqual(Stats.price("$145.00 + $12.50 fees"), 145)
+        XCTAssertEqual(Stats.price("$1,250.00"), 1250)
+        XCTAssertEqual(Stats.price("19.50"), 19.5)
+        XCTAssertEqual(Stats.price(""), 0)
+    }
+
+    func testSellerWholeWords() {
+        XCTAssertNil(Seller.detect(text: "PARADISE THEATER  Candice B.", url: nil))
+        XCTAssertEqual(Seller.detect(text: "Your DICE ticket", url: nil), .dice)
+        XCTAssertEqual(Seller.detect(text: "", url: "https://link.dice.fm/abc"), .dice)
+        XCTAssertEqual(Seller.detect(text: "Ticketmaster order", url: nil), .ticketmaster)
+    }
+
+    func testHeadliner() {
+        XCTAssertEqual(Artists.headliner("The 1975"), "The 1975")
+        XCTAssertEqual(Artists.headliner("Florence + the Machine"), "Florence + the Machine")
+        XCTAssertEqual(Artists.headliner("Phoebe Bridgers – Reunion Tour"), "Phoebe Bridgers")
+        XCTAssertEqual(Artists.headliner("Khruangbin World Tour 2026"), "Khruangbin")
+        XCTAssertEqual(Artists.headliner("Mitski with Gold Panda"), "Mitski")
+        XCTAssertTrue(Artists.same("The Weeknd", "weeknd"))
+        XCTAssertFalse(Artists.same("The", "The Weeknd"))
+        XCTAssertTrue(Artists.same("Simon & Garfunkel", "Simon and Garfunkel"))
+    }
+
+    func testPatternCodeNeedsADigit() {
+        let p = OnDeviceReader.patterns(["ORDER CONFIRMATION", "Order number: 4471-AB92", "FRI OCT 9 7:30 PM"])
+        XCTAssertEqual(p.code, "4471-AB92")
+        XCTAssertEqual(OnDeviceReader.patterns(["BOOKING REFERENCE", "-----"]).code, "")
+        // An email address isn't a game.
+        XCTAssertNotEqual(OnDeviceReader.patterns(["tickets@venue.com", "FRI OCT 9 7:30 PM"]).kind, .sports)
+        XCTAssertNil(OnDeviceReader.date(in: "MARVEL 2 IMAX"))
+        XCTAssertNil(OnDeviceReader.date(in: "JUNCTION 3"))
+        XCTAssertEqual(OnDeviceReader.date(in: "Sept. 12"), "09-12")
+    }
+}
+
+@MainActor
+final class ShowingTests: XCTestCase {
+    private var container: ModelContainer!
+    override func setUp() async throws {
+        container = try ModelContainer(for: Pass.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    }
+
+    private func pass(_ title: String, _ date: String, _ time: String, seat: String = "", group: UUID? = nil) -> Pass {
+        let p = Pass(title: title); p.date = date; p.time = time; p.seat = seat; p.venue = "Metrograph"
+        if let group { p.group = group }
+        container.mainContext.insert(p)
+        return p
+    }
+
+    func testSeatsInPrintedOrderAndOneReminderPairPerShowing() {
+        let g = UUID()
+        let future = Calendar.current.date(byAdding: .day, value: 10, to: Date())!
+        let day = WhenFormat.day.string(from: future)
+        let a = pass("Digger", day, "7:30 PM", seat: "F10", group: g)
+        let b = pass("Digger", day, "7:30 PM", seat: "F9", group: g)
+        let c = pass("Digger", day, "7:30 PM", seat: "F11", group: g)
+        XCTAssertEqual(Showings.sortSeats([a, b, c]).map(\.seat), ["F9", "F10", "F11"])
+        let items = Reminders.plan([a, b, c])
+        XCTAssertEqual(items.count, 2)
+        XCTAssertTrue(items[1].body.contains("Seats F9, F10, F11"))
+    }
+
+    func testCalendarPlan() {
+        let future = Calendar.current.date(byAdding: .day, value: 5, to: Date())!
+        let day = WhenFormat.day.string(from: future)
+        let timed = pass("Digger", day, "7:30 PM", seat: "G13")
+        timed.runtime = 120
+        let tbd = pass("Liberty vs Aces", day, "")
+        tbd.kind = .sports
+        let undated = pass("Hamlet", "", "")
+        let plans = CalendarSync.plan([timed, tbd, undated])
+        XCTAssertEqual(plans.count, 2)                      // no date, no event
+        let p = plans.first { $0.title == "Digger" }!
+        XCTAssertFalse(p.allDay)
+        XCTAssertEqual(p.end.timeIntervalSince(p.start), 135 * 60)   // runtime + 15
+        XCTAssertTrue(p.notes.contains("Seat: G13"))
+        XCTAssertTrue(plans.first { $0.title == "Liberty vs Aces" }!.allDay)
+    }
+
+    func testOldStubKeepsItsYearAndIsPast() {
+        let p = pass("Paris, Texas", "2019-05-04", "7:00 PM")
+        XCTAssertTrue(p.isArchived)
+        XCTAssertTrue(Reminders.plan([p]).isEmpty)
     }
 }

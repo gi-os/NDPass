@@ -143,7 +143,7 @@ struct CoverArt: View {
     @ViewBuilder private var local: some View {
         // Event art (a matchup card, a show poster) if we made one; otherwise a gradient.
         // The photo of the ticket itself stays in the ticket view, not on the cover.
-        if let p = pass, let d = p.art, let img = UIImage(data: d) {
+        if let p = pass, let d = p.art, let img = ImageKit.art(d, id: p.id.uuidString) {
             Image(uiImage: img).resizable().scaledToFill()
         } else {
             StubGradient(seed: pass?.group.uuidString ?? "ndpass")
@@ -197,7 +197,7 @@ enum Countdown {
         }
         let cal = Calendar.current
         let prefix: String
-        if cal.isDateInToday(start) { prefix = "TONIGHT" }
+        if cal.isDateInToday(start) { prefix = cal.component(.hour, from: start) >= 17 ? "TONIGHT" : "TODAY" }
         else if cal.isDateInTomorrow(start) { prefix = "TOMORROW" }
         else { prefix = start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()).uppercased() }
         if let c = short(to: start, now: now), cal.isDateInToday(start) || cal.isDateInTomorrow(start) { return "\(prefix) · \(c)" }
@@ -255,8 +255,7 @@ struct TitleMark: View {
     }
 
     private var fallback: some View {
-        // Titles read off a ticket in all lowercase get their capitals back.
-        Text(PassTimes.display(pass.title)).font(Theme.serif(fallbackSize)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.5)
+        Text(pass.title).font(Theme.serif(fallbackSize)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.5)
             .multilineTextAlignment(alignment == .leading ? .leading : .center)
     }
 }

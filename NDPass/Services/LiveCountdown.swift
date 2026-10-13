@@ -14,8 +14,27 @@ enum LiveCountdown {
     static let linger: TimeInterval = 10 * 60
     static let ahead = 3            // showings scheduled at once (iOS 26)
 
+    private static var running = false
+    private static var again = false
+
+    /// Bring the Live Activities in line with the tickets. Safe to call often: one refresh
+    /// runs at a time, and a call that comes in meanwhile runs once more afterwards (so
+    /// pulling down Notification Center can't start two of the same).
     static func refresh(_ passes: [Pass]) async {
         guard !Demo.active else { return }
+        if running { again = true; return }
+        running = true
+        defer { running = false }
+        repeat {
+            again = false
+            await refreshOnce(passes.filter { !$0.isDeleted })
+        } while again
+    }
+
+    /// Showings you swiped off the Lock Screen: not brought back.
+    private static let dismissedKey = "liveDismissed"
+
+    private static func refreshOnce(_ passes: [Pass]) async {
         let now = Date()
         let upcoming = Showings.groups(passes, archived: false).filter { g in
             guard let s = g[0].start else { return false }
@@ -25,39 +44,78 @@ enum LiveCountdown {
         if #available(iOS 26.0, *) {
             wanted = Array(upcoming.prefix(ahead))
         } else {
-            wanted = upcoming.filter { g in g[0].start.map { $0 - leadTime(g[0]) <= now } ?? false }.prefix(1).map { $0 }
+            wanted = upcoming.filter { g in g[0].start.map { $0 - leadTime(g[0]) <= now.addingTimeInterval(60) } ?? false }.prefix(1).map { $0 }
         }
-        let keys = Set(wanted.map { $0[0].group.uuidString })
+        let d = Store.defaults
+        var dismissed = Set(d.stringArray(forKey: dismissedKey) ?? []).intersection(upcoming.map { $0[0].group.uuidString })
+        let plans = Dictionary(wanted.compactMap { g -> (String, (CountdownAttributes, Date))? in
+            guard let start = g[0].start else { return nil }
+            return (g[0].group.uuidString, (attributes(g, start: start), start))
+        }, uniquingKeysWith: { a, _ in a })
+
+        var endedHere = Set<String>()
         for a in Activity<CountdownAttributes>.activities {
-            let stillWanted = keys.contains(a.attributes.group)
-            let moved = wanted.first { $0[0].group.uuidString == a.attributes.group }?[0].start.map { $0 != a.content.state.start } ?? false
-            if !stillWanted || moved { await a.end(nil, dismissalPolicy: .immediate) }
-        }
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        for g in wanted {
-            guard let p = g.first, let start = p.start else { continue }
-            let key = p.group.uuidString
-            if let running = Activity<CountdownAttributes>.activities.first(where: { $0.attributes.group == key && $0.activityState != .ended && $0.activityState != .dismissed }) {
-                // Started by an older build (its codes were too big to draw): redo the
-                // pictures and nudge it to redraw.
-                if !artIsCurrent(key) { await saveArt(g, key: key); await running.update(running.content) }
+            let key = a.attributes.group
+            guard let (attrs, start) = plans[key] else {
+                if a.activityState != .ended && a.activityState != .dismissed { await a.end(nil, dismissalPolicy: .immediate) }
                 continue
             }
-            await saveArt(g, key: key)
+            if a.activityState == .dismissed {
+                // Gone from the Lock Screen without us ending it: you swiped it away.
+                if !endedHere.contains(key) { dismissed.insert(key) }
+                continue
+            }
+            // A changed time, title, venue or seat: start again with the new details.
+            if a.content.state.start != start || a.attributes.title != attrs.title || a.attributes.venue != attrs.venue
+                || a.attributes.seats != attrs.seats || a.attributes.place != attrs.place || a.attributes.gate != attrs.gate {
+                await a.end(nil, dismissalPolicy: .immediate)
+                endedHere.insert(key)
+            }
+        }
+        d.set(Array(dismissed), forKey: dismissedKey)
+
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        for g in wanted {
+            guard let p = g.first, !p.isDeleted, let start = p.start else { continue }
+            let key = p.group.uuidString
+            if dismissed.contains(key) { continue }
+            if let live = Activity<CountdownAttributes>.activities.first(where: { $0.attributes.group == key && $0.activityState != .ended && $0.activityState != .dismissed }) {
+                // Started by an older build (its codes were too big to draw): redo the
+                // pictures and nudge it to redraw.
+                if !artIsCurrent(key) { await saveArt(ArtInput(g), key: key); await live.update(live.content) }
+                continue
+            }
+            guard let (attrs, _) = plans[key] else { continue }
             let transit = p.kind == .transit
+            let lead = leadTime(p)
+            let title = p.title, venue = p.venue
+            // Everything read from the tickets is copied before the first wait: a ticket
+            // deleted meanwhile can't be touched afterwards.
+            let input = ArtInput(g)
+            await saveArt(input, key: key)
             // Trips show the boarding pass for the whole window, so they never go stale early.
             let content = ActivityContent(state: CountdownAttributes.ContentState(start: start, index: 0),
                                           staleDate: transit ? start + linger : start - 20 * 60, relevanceScore: 100)
-            let attrs = attributes(g, start: start)
-            let begin = start - leadTime(p)
-            if #available(iOS 26.0, *), begin > now.addingTimeInterval(60) {
-                let alert = AlertConfiguration(title: LocalizedStringResource(stringLiteral: p.title),
-                                               body: LocalizedStringResource(stringLiteral: (transit ? "Departs in \(Int(leadTime(p) / 60)) minutes" : "Starts in 30 minutes") + (p.venue.isEmpty ? "" : (transit ? " from " : " at ") + p.venue)),
-                                               sound: .default)
+            let begin = start - lead
+            if #available(iOS 26.0, *), begin > Date().addingTimeInterval(60) {
+                let body = (transit ? "Departs in \(Int(lead / 60)) minutes" : "Starts in 30 minutes") + (venue.isEmpty ? "" : (transit ? " from " : " at ") + venue)
+                let alert = AlertConfiguration(title: LocalizedStringResource(stringLiteral: title), body: LocalizedStringResource(stringLiteral: body), sound: .default)
                 _ = try? Activity.request(attributes: attrs, content: content, pushType: nil, style: .standard, alertConfiguration: alert, start: begin)
-            } else if begin <= now {
+            } else {
+                // In the window already, or within the minute: start now.
                 _ = try? Activity.request(attributes: attrs, content: content, pushType: nil)
             }
+        }
+        cleanUp(keep: Set(upcoming.map { $0[0].group.uuidString }))
+    }
+
+    /// Pictures for showings that are over are deleted.
+    private static func cleanUp(keep: Set<String>) {
+        guard let root = Store.folder?.appendingPathComponent("Countdown", isDirectory: true),
+              let dirs = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return }
+        let live = Set(Activity<CountdownAttributes>.activities.filter { $0.activityState != .dismissed && $0.activityState != .ended }.map(\.attributes.group))
+        for dir in dirs where !keep.contains(dir.lastPathComponent) && !live.contains(dir.lastPathComponent) {
+            try? FileManager.default.removeItem(at: dir)
         }
     }
 
@@ -77,7 +135,8 @@ enum LiveCountdown {
             seller: (p.seller?.rotatingCode == true) ? p.seller?.name : nil,
             kind: p.kind.rawValue,
             gate: gate,
-            destination: p.destination.isEmpty ? nil : p.destination)
+            destination: p.destination.isEmpty ? nil : p.destination,
+            place: place)
     }
 
     /// Bumped whenever the saved pictures change shape. v2: Lock Screen-sized codes, one per ticket.
@@ -86,28 +145,38 @@ enum LiveCountdown {
         CountdownArt.folder(key).map { FileManager.default.fileExists(atPath: $0.appendingPathComponent(artVersion).path) } ?? true
     }
 
+    /// What the pictures need from the tickets, copied up front.
+    struct ArtInput {
+        let backdropURL: URL?, logoURL: URL?, art: Data?, title: String, rotating: Bool, codes: [UIImage?]
+        @MainActor init(_ g: [Pass]) {
+            let p = g[0]
+            backdropURL = p.backdropURL; logoURL = p.logoURL; art = p.art; title = p.title
+            rotating = p.seller?.rotatingCode == true
+            codes = rotating ? [] : g.map { LiveCountdown.codeImage($0) }
+        }
+    }
+
     /// The activity can't download anything, so the pictures go into the App Group first,
     /// small enough for its memory limit.
-    private static func saveArt(_ g: [Pass], key: String) async {
+    private static func saveArt(_ input: ArtInput, key: String) async {
         guard let dir = CountdownArt.folder(key) else { return }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let p = g[0]
         var backdrop: UIImage?
-        if let u = p.backdropURL, let (d, _) = try? await URLSession.shared.data(from: u) { backdrop = UIImage(data: d) }
-        if backdrop == nil, let d = p.art { backdrop = UIImage(data: d) }
+        if let u = input.backdropURL, let (d, _) = try? await URLSession.shared.data(from: u) { backdrop = ImageKit.downsample(d, maxPixel: 600) }
+        if backdrop == nil, let d = input.art { backdrop = ImageKit.downsample(d, maxPixel: 600) }
         // Live Activities only draw small images; a big one comes out as a grey box.
-        if let b = backdrop.flatMap({ shrink($0, width: 600) }), let d = b.jpegData(compressionQuality: 0.7), let u = CountdownArt.backdrop(key) { try? d.write(to: u) }
+        if let b = backdrop, let d = b.jpegData(compressionQuality: 0.7), let u = CountdownArt.backdrop(key) { try? d.write(to: u) }
+        else if let u = CountdownArt.backdrop(key) { try? FileManager.default.removeItem(at: u) }
         var logo: UIImage?
-        if let lu = p.logoURL, let (d, _) = try? await URLSession.shared.data(from: lu), let img = UIImage(data: d) {
-            logo = shrink(img, width: 300)
-            if let png = logo?.pngData(), let u = CountdownArt.logo(key) { try? png.write(to: u) }
-        }
-        if let png = island(backdrop: backdrop, logo: logo, title: p.title).pngData(), let u = CountdownArt.island(key) { try? png.write(to: u) }
+        if let lu = input.logoURL, let (d, _) = try? await URLSession.shared.data(from: lu) { logo = ImageKit.downsample(d, maxPixel: 300) }
+        if let png = logo?.pngData(), let u = CountdownArt.logo(key) { try? png.write(to: u) }
+        else if let u = CountdownArt.logo(key) { try? FileManager.default.removeItem(at: u) }   // the film changed
+        if let png = island(backdrop: backdrop, logo: logo, title: input.title).pngData(), let u = CountdownArt.island(key) { try? png.write(to: u) }
         // One code per ticket, small enough for the Lock Screen (see Barcodes.render).
-        if p.seller?.rotatingCode != true {
-            for (i, t) in g.enumerated() {
+        if !input.rotating {
+            for (i, code) in input.codes.enumerated() {
                 guard let u = CountdownArt.code(key, i) else { continue }
-                if let png = codeImage(t)?.pngData() { try? png.write(to: u) } else { try? FileManager.default.removeItem(at: u) }
+                if let png = code?.pngData() { try? png.write(to: u) } else { try? FileManager.default.removeItem(at: u) }
             }
         }
         FileManager.default.createFile(atPath: dir.appendingPathComponent(artVersion).path, contents: Data())
@@ -143,17 +212,11 @@ enum LiveCountdown {
     /// The code tile is ~100 pt on the Lock Screen: 3x that, and never more than the card.
     static let codePixels: CGFloat = 300
 
-    private static func codeImage(_ p: Pass) -> UIImage? {
+    static func codeImage(_ p: Pass) -> UIImage? {
         if let s = p.scannedCode, let f = p.scannedFormat, let img = Barcodes.render(s, as: f, fit: codePixels) { return img }
         return nil
     }
 
-    private static func shrink(_ img: UIImage, width: CGFloat) -> UIImage {
-        guard img.size.width > width else { return img }
-        let size = CGSize(width: width, height: (img.size.height * width / img.size.width).rounded())
-        let f = UIGraphicsImageRendererFormat(); f.scale = 1
-        return UIGraphicsImageRenderer(size: size, format: f).image { _ in img.draw(in: CGRect(origin: .zero, size: size)) }
-    }
 }
 
 /// Buttons on the Lock Screen and Dynamic Island come back as ndpass:// links.

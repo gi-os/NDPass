@@ -1,3 +1,12 @@
-NDPass keeps movie ticket stubs. Reading a ticket automatically uses the user's own Anthropic API key (Settings > Anthropic key). No key or AI consent is needed to review the app: tap + and pick any photo, choose "Not now, I'll type them" on the consent screen, and the ticket opens for manual entry. Posters use an optional TMDB key.
+NDPass keeps tickets (films, games, concerts, shows, events, trips). There is no account, no server and no login. No API key is needed to review the app.
 
-The app asks for consent (Guideline 5.1.2) before any photo is sent to Anthropic, and the setting can be changed in Settings. There is no account and no server.
+To add a ticket:
+- Tap + on the first tab and choose "Type it in" to enter one by hand, or
+- Tap + > "Pick a photo or screenshot" and pick a photo of any ticket. It's read on the device with Apple's Vision framework (and Apple Intelligence when available). Nothing is sent off the device to read it.
+- From any app, share a screenshot, PDF, link or confirmation email to NDPass with the share sheet; the ticket is read and added from the share sheet itself.
+
+Optional features that use the user's own keys, entered in Settings: reading tickets with Anthropic's Claude (the app asks for consent before any photo is sent, per guideline 5.1.2), film posters from TMDB, team crests from TheSportsDB. Concert artist photos come from Deezer's public API.
+
+Calendar: off by default. Settings > Calendar > "Add tickets to my calendar" asks for calendar access and adds an event for each upcoming ticket unless one already exists.
+
+Live Activity: for a ticket starting within 30 minutes (or scheduled ahead on iOS 26), a countdown appears on the Lock Screen and in the Dynamic Island.

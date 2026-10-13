@@ -19,10 +19,10 @@ struct AIConsentSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Read tickets with Claude?").font(Theme.serif(34)).foregroundStyle(Theme.ink)
             VStack(alignment: .leading, spacing: 12) {
-                row("photo", "When you scan a stub, its photo is sent to Anthropic's Claude API, using your own API key, to read the film, theater, date, time, seat, price and booking code.")
-                row("lock", "Nothing else leaves your phone. Your tickets are stored on this device only. NDPass has no account and no server of its own.")
+                row("photo", "When you scan a ticket, its photo is sent to Anthropic's Claude API, using your own API key, to read what it's for, the venue, date, time, seat, price and booking code.")
+                row("lock", "Your tickets are stored on this device only. NDPass has no account and no server of its own.")
                 row("hand.raised", "Anthropic's handling of API data is covered by its privacy policy at anthropic.com/legal/privacy.")
-                row("pencil", "Say no and NDPass still works: you type the ticket details yourself. You can change this in Settings.")
+                row("iphone", "Say no and NDPass still works: tickets are read on this iPhone instead, and you can always type one in. You can change this in Settings.")
             }
             Spacer(minLength: 0)
             Button { onDone(true) } label: {
@@ -30,7 +30,7 @@ struct AIConsentSheet: View {
                     .frame(maxWidth: .infinity, minHeight: 52).background(Theme.accent, in: Capsule())
             }
             Button { onDone(false) } label: {
-                Text("Not now, I'll type them").font(Theme.sans(16)).foregroundStyle(Theme.ink)
+                Text("Not now, read on this iPhone").font(Theme.sans(16)).foregroundStyle(Theme.ink)
                     .frame(maxWidth: .infinity, minHeight: 48)
             }
         }

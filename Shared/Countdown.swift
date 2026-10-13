@@ -24,9 +24,25 @@ struct CountdownAttributes: ActivityAttributes {
     var kind: String?          // EventKind raw value
     var gate: String?          // "Track 9", "Gate B22"
     var destination: String?
+    /// "METROGRAPH", "TRAIN · AMTRAK 2151". The day word in front of it is worked out when
+    /// the activity is drawn, so a showing scheduled a day ahead doesn't say "TOMORROW" on
+    /// the night. Nil for activities started by older builds (they use `eyebrow`).
+    var place: String?
 }
 
 extension CountdownAttributes {
+    /// "TONIGHT · METROGRAPH", from the start time as it is now.
+    func eyebrow(start: Date, now: Date = Date()) -> String {
+        guard let place else { return eyebrow }
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: start)
+        let day: String
+        if cal.isDate(start, inSameDayAs: now) { day = hour >= 17 ? "TONIGHT" : "TODAY" }
+        else if let t = cal.date(byAdding: .day, value: 1, to: now), cal.isDate(start, inSameDayAs: t) { day = "TOMORROW" }
+        else { day = start.formatted(.dateTime.weekday(.abbreviated)).uppercased() }
+        return place.isEmpty ? day : "\(day) · \(place)"
+    }
+
     var isTransit: Bool { kind == "transit" }
     /// "Starts" / "Departs", "Doors open" / "Boarding".
     var verb: String { isTransit ? "Departs" : "Starts" }

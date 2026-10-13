@@ -124,7 +124,7 @@ private struct CountdownCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(a.eyebrow).font(C.mono(10)).tracking(1.2).foregroundStyle(C.amber).lineLimit(1)
+                        Text(a.eyebrow(start: ctx.state.start)).font(C.mono(10)).tracking(1.2).foregroundStyle(C.amber).lineLimit(1)
                         Logo(a: a, height: 34)
                     }
                     Spacer(minLength: 8)
