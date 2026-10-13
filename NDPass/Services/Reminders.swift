@@ -45,9 +45,13 @@ enum Reminders {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             if settings.authorizationStatus == .notDetermined {
+                #if NDPASS_EXTENSION
+                return   // the app asks, not the share sheet
+                #else
                 guard !items.isEmpty else { return }
                 center.requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in if ok { replace(items) } }
                 return
+                #endif
             }
             guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
             replace(items)

@@ -157,9 +157,11 @@ final class Importer: ObservableObject {
             let any = await TMDb.search(p.title, key: key)
             func same(_ m: MovieMatch) -> Bool { m.title.lowercased().filter(\.isLetter) == p.title.lowercased().filter(\.isLetter) }
             let m = thisYear.first(where: same) ?? any.first(where: same) ?? thisYear.first ?? any.first
-            if let m {
+            if let m, !p.isDeleted {
                 apply(m, to: p)
-                p.runtime = await TMDb.runtime(m.id, key: key)
+                let runtime = await TMDb.runtime(m.id, key: key)
+                guard !p.isDeleted else { return }
+                p.runtime = runtime
                 await TMDb.art(for: p, key: key)
             }
         } else if p.kind != .movie {

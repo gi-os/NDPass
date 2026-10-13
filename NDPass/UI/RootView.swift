@@ -122,7 +122,7 @@ struct RootView: View {
             let checked = Set(UserDefaults.standard.stringArray(forKey: "logoChecked") ?? [])
             let todo = ((try? ctx.fetch(FetchDescriptor<Pass>())) ?? []).filter { $0.tmdbID != nil && $0.logoPath == nil && !checked.contains($0.id.uuidString) }
             var done = checked
-            for p in todo { await TMDb.art(for: p, key: key); done.insert(p.id.uuidString) }
+            for p in todo where !p.isDeleted { await TMDb.art(for: p, key: key); done.insert(p.id.uuidString) }
             try? ctx.save()
             UserDefaults.standard.set(Array(done), forKey: "logoChecked")
         }

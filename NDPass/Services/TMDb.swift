@@ -53,6 +53,7 @@ enum TMDb {
     static func art(for p: Pass, key: String?) async {
         guard let id = p.tmdbID else { return }
         let (logo, back) = await images(id, key: key)
+        guard !p.isDeleted else { return }   // deleted while the request was out
         if let logo { p.logoPath = logo }
         if let back { p.backdropPath = back }
     }
