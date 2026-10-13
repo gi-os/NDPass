@@ -1,0 +1,17 @@
+name: In-App Purchases
+# Run by hand: creates or updates NDPass Gold and Gold Plus in App Store Connect (names,
+# prices, territories). The App Store workflow runs the same script with the review screenshot.
+on:
+  workflow_dispatch:
+
+jobs:
+  iap:
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m venv /tmp/iap && /tmp/iap/bin/pip install --quiet pyjwt cryptography requests
+      - run: /tmp/iap/bin/python ci/iap.py

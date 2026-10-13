@@ -45,5 +45,8 @@ jobs:
         with:
           name: screenshots
           path: fastlane/screenshots
+      - name: In-app purchases
+        run: python3 -m venv /tmp/iap && /tmp/iap/bin/pip install --quiet pyjwt cryptography requests && /tmp/iap/bin/python ci/iap.py
+        continue-on-error: true
       - name: Upload to App Store Connect
         run: bundle exec fastlane release
