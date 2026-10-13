@@ -52,7 +52,7 @@ enum Demo {
                 p.price = price
                 p.confidence = 0.96
                 p.runtime = kind == .movie ? 118 : nil
-                p.art = art == .game ? EventArt.matchCard("Harbor", "Ironside").jpegData(compressionQuality: 0.9) : poster(art)
+                p.art = art == .game ? gameArt() : poster(art)
                 p.scannedCode = "NDP-\(title.prefix(3).uppercased())-\(seat.filter(\.isLetter))\(seat.filter(\.isNumber))-2026"
                 p.scannedFormat = .qr
                 p.overview = kind == .movie ? blurbs[title] : nil
@@ -113,5 +113,11 @@ enum Demo {
             }
         }
         return img.jpegData(compressionQuality: 0.9)
+    }
+
+    /// The demo game drawn like a real one: each half in its team's colors.
+    private static func gameArt() -> Data? {
+        let a = TeamColors.fallback("Harbor"), b = TeamColors.fallback("Ironside")
+        return EventArt.split(home: (a.name, nil, a.colors), away: (b.name, nil, b.colors), seed: "Harbor vs Ironside").jpegData(compressionQuality: 0.9)
     }
 }
