@@ -78,6 +78,7 @@ struct RootView: View {
         .environmentObject(importer)
         .tint(Theme.accent)
         .preferredColorScheme(.dark)
+        .task { Supporter.shared.start() }
         .onAppear {
             guard !Demo.active else { return }
             let hadKeys = Keys.get(.anthropic) != nil || Keys.get(.tmdb) != nil

@@ -54,6 +54,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIconGold AppIconPlatinum"
         GENERATE_INFOPLIST_FILE: NO
   NDPassShare:
     type: app-extension

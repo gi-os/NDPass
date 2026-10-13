@@ -159,6 +159,12 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    SupportSection()
+                } header: { Text("Support NDPass") } footer: {
+                    Text("NDPass is free, with nothing locked. Gold and Gold Plus are one-time purchases that support it; they add an app icon and a thank-you, nothing else.")
+                }
+
+                Section {
                     Picker("Directions in", selection: $maps) {
                         ForEach(Maps.App.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
