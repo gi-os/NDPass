@@ -116,6 +116,7 @@ struct SettingsView: View {
     @State private var calendars: [CalendarChoice] = []
     @State private var calendarDenied = false
     @State private var removed = false
+    @ObservedObject private var supporter = Supporter.shared
 
     var body: some View {
         NavigationStack {
@@ -158,10 +159,12 @@ struct SettingsView: View {
                          : "Every upcoming ticket gets an event, unless your calendar already has one for it. NDPass keeps its events up to date when you edit a ticket, and won't add back one you delete.")
                 }
 
-                Section {
-                    SupportSection()
-                } header: { Text("Support NDPass") } footer: {
-                    Text("NDPass is free, with nothing locked. Gold and Gold Plus are one-time purchases that support it; they add an app icon and a thank-you, nothing else.")
+                if supporter.showsSupport {
+                    Section {
+                        SupportSection()
+                    } header: { Text("Support NDPass") } footer: {
+                        Text("NDPass is free, with nothing locked. Gold and Gold Plus are one-time purchases that support it; they add an app icon and a thank-you, nothing else.")
+                    }
                 }
 
                 Section {
@@ -202,6 +205,7 @@ struct SettingsView: View {
                 CalendarSync.sync(passes)
             }
             .onAppear(perform: loadCalendars)
+            .task { await supporter.load() }
             .onChange(of: phase) { _, p in if p == .active { loadCalendars() } }
             .sheet(isPresented: $askConsent, onDismiss: {
                 // Swiped away without answering: stay with reading on this iPhone.

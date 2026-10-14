@@ -43,8 +43,13 @@ final class Supporter: ObservableObject {
         Task { await load(); await refresh() }
     }
 
+    /// Settings shows Support NDPass only when there's something to show: the purchases came
+    /// back from the App Store, or you already own one. Until the App Store has them (offline,
+    /// or before they're approved), there's no locked icon you can't buy.
+    var showsSupport: Bool { Demo.active || !products.isEmpty || tier > .none }
+
     func load() async {
-        guard products.isEmpty else { return }
+        guard products.isEmpty, !Demo.active else { return }
         if let p = try? await Product.products(for: [Self.goldID, Self.goldPlusID]) {
             products = p.sorted { $0.price < $1.price }
         }

@@ -2,7 +2,8 @@ name: App Store
 
 # Run by hand. Takes the App Store screenshots on the simulator, uploads the store text in
 # fastlane/metadata and the screenshots, attaches the newest TestFlight build of this
-# version, and — if "submit" is ticked — sends it to App Review.
+# version, and — if "submit" is ticked — sends it to App Review, with Gold and Gold Plus
+# unless "iaps" is unticked.
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +11,10 @@ on:
         description: "Submit for review"
         type: boolean
         default: false
+      iaps:
+        description: "Also send Gold and Gold Plus to App Review (needs an active Paid Apps Agreement)"
+        type: boolean
+        default: true
 
 concurrency:
   group: appstore
@@ -48,5 +53,8 @@ jobs:
       - name: In-app purchases
         run: python3 -m venv /tmp/iap && /tmp/iap/bin/pip install --quiet pyjwt cryptography requests && /tmp/iap/bin/python ci/iap.py
         continue-on-error: true
+        env:
+          # Keeps the purchases up to date either way; only sends them to review when both are ticked.
+          SUBMIT: ${{ inputs.submit && inputs.iaps }}
       - name: Upload to App Store Connect
         run: bundle exec fastlane release
