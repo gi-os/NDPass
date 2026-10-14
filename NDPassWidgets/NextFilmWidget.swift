@@ -107,14 +107,21 @@ private struct Poster: View {
     let film: NextFilm
     /// The film mark on the gradient; off where text sits on top of the poster.
     var mark = true
+    @Environment(\.widgetRenderingMode) private var mode
     var body: some View {
         if let img = W.image(NextFilmStore.poster(film.group)) {
-            // Filled into whatever space it's given, never sizing the layout itself.
-            Color.clear.overlay { Image(uiImage: img).resizable().scaledToFill() }.clipped()
+            // Filled into whatever space it's given, never sizing the layout itself. In the Clear
+            // and Tinted Home Screens a plain image is drawn as a solid silhouette (a white box);
+            // desaturated it stays a picture.
+            Color.clear.overlay {
+                Image(uiImage: img).resizable().widgetAccentedRenderingMode(.accentedDesaturated).scaledToFill()
+            }
+            .clipped()
         } else {
             // No poster: the ticket's gradient with a film mark (the title is already beside it).
+            // Clear and Tinted keep only a shape's opacity, so the gradient would be a white box.
             ZStack {
-                StubGradient(seed: film.group)
+                if mode == .fullColor { StubGradient(seed: film.group) } else { Color.white.opacity(0.08) }
                 if mark { Image(systemName: "film").font(.system(size: 26, weight: .light)).foregroundStyle(W.ink.opacity(0.55)) }
             }
         }
@@ -172,6 +179,13 @@ private func seatsLabel(_ f: NextFilm) -> String {
 struct NextFilmView: View {
     let entry: NextFilmEntry
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var mode
+
+    /// Full colour on the default Home Screen. Clear and Tinted (accented) draw every shape and
+    /// colour as the one tint at its opacity, so dark fades and filled pills turn into white
+    /// blocks there: they're dropped or made faint.
+    private var full: Bool { mode == .fullColor }
+    private func fill(_ c: Color) -> Color { full ? c : .white.opacity(0.2) }
 
     var body: some View {
         Group {
@@ -195,15 +209,17 @@ struct NextFilmView: View {
     // Small: the poster, full bleed, with a stub of the details along the bottom.
     private func small(_ f: NextFilm) -> some View {
         ZStack(alignment: .bottom) {
-            Poster(film: f, mark: false)
-            LinearGradient(stops: [.init(color: .clear, location: 0.3), .init(color: W.bg.opacity(0.75), location: 0.6), .init(color: W.bg, location: 1)],
-                           startPoint: .top, endPoint: .bottom)
+            Poster(film: f, mark: false).opacity(full ? 1 : 0.45)
+            if full {
+                LinearGradient(stops: [.init(color: .clear, location: 0.3), .init(color: W.bg.opacity(0.75), location: 0.6), .init(color: W.bg, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            }
             VStack(alignment: .leading, spacing: 3) {
-                Text(f.dayWord(now: entry.date)).font(W.mono(9.5, .medium)).tracking(1.3).foregroundStyle(W.amber)
+                Text(f.dayWord(now: entry.date)).font(W.mono(9.5, .medium)).tracking(1.3).foregroundStyle(W.amber).widgetAccentable()
                 Text(f.title).font(W.serif(22)).foregroundStyle(W.ink).lineLimit(2).minimumScaleFactor(0.6)
                 HStack(spacing: 6) {
                     Text(f.time).font(W.mono(11, .medium)).foregroundStyle(W.onAccent)
-                        .padding(.horizontal, 7).padding(.vertical, 2.5).background(W.accent, in: Capsule())
+                        .padding(.horizontal, 7).padding(.vertical, 2.5).background(fill(W.accent), in: Capsule())
                     if !f.seats.isEmpty {
                         Text(f.seats.joined(separator: " ")).font(W.mono(11)).foregroundStyle(W.ink).lineLimit(1)
                     }
@@ -222,7 +238,7 @@ struct NextFilmView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(alignment: .topLeading) {
                     Text("ADMIT \(max(f.tickets, 1))").font(W.mono(8, .semibold)).tracking(1).foregroundStyle(W.onAccent)
-                        .padding(.horizontal, 6).padding(.vertical, 3).background(W.paper, in: Capsule())
+                        .padding(.horizontal, 6).padding(.vertical, 3).background(fill(W.paper), in: Capsule())
                         .padding(8)
                 }
                 .padding(10)
@@ -230,6 +246,7 @@ struct NextFilmView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(f.eyebrow(now: entry.date)).font(W.mono(9.5, .medium)).tracking(1.2).foregroundStyle(W.amber).lineLimit(1)
+                        .widgetAccentable()
                     Spacer(minLength: 4)
                     if entry.more > 0 {
                         Text("+\(entry.more)").font(W.mono(9.5)).foregroundStyle(W.muted)
@@ -238,7 +255,7 @@ struct NextFilmView: View {
                 TitleMark(film: f, size: 30).padding(.top, 6)
                 Spacer(minLength: 4)
                 When(film: f, now: entry.date).font(W.sans(12, .medium)).foregroundStyle(W.accent).lineLimit(1)
-                    .padding(.bottom, 8)
+                    .widgetAccentable().padding(.bottom, 8)
                 HStack(alignment: .top, spacing: 14) {
                     field("TIME", f.time)
                     field(f.seats.count > 1 ? "SEATS" : "SEAT", seatsLabel(f))
@@ -248,24 +265,27 @@ struct NextFilmView: View {
             .padding(.vertical, 14).padding(.leading, 14).padding(.trailing, 16)
         }
         .background(alignment: .leading) {
-            // The poster's colour bleeding into the ticket, faintly.
-            Poster(film: f).blur(radius: 30).opacity(0.35).overlay(W.bg.opacity(0.45))
+            // The poster's colour bleeding into the ticket, faintly (colour only).
+            if full { Poster(film: f).blur(radius: 30).opacity(0.35).overlay(W.bg.opacity(0.45)) }
         }
     }
 
     // Large: the poster as the screen, a paper stub across the bottom.
     private func large(_ f: NextFilm) -> some View {
         ZStack(alignment: .bottom) {
-            Poster(film: f, mark: false)
-            LinearGradient(stops: [.init(color: W.bg.opacity(0.45), location: 0), .init(color: .clear, location: 0.18),
-                                   .init(color: .clear, location: 0.38), .init(color: W.bg.opacity(0.9), location: 0.7), .init(color: W.bg, location: 1)],
-                           startPoint: .top, endPoint: .bottom)
+            Poster(film: f, mark: false).opacity(full ? 1 : 0.45)
+            if full {
+                LinearGradient(stops: [.init(color: W.bg.opacity(0.45), location: 0), .init(color: .clear, location: 0.18),
+                                       .init(color: .clear, location: 0.38), .init(color: W.bg.opacity(0.9), location: 0.7), .init(color: W.bg, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("NDPass").font(W.serif(20)).foregroundStyle(W.ink)
                     Spacer()
                     Text(f.dayWord(now: entry.date)).font(W.mono(10, .medium)).tracking(1.3).foregroundStyle(W.onAccent)
-                        .padding(.horizontal, 9).padding(.vertical, 4).background(W.accent, in: Capsule())
+                        .padding(.horizontal, 9).padding(.vertical, 4).background(fill(W.accent), in: Capsule())
+                        .widgetAccentable()
                 }
                 Spacer()
                 TitleMark(film: f, size: 44, lines: 2).padding(.bottom, 4)
@@ -274,6 +294,7 @@ struct NextFilmView: View {
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     When(film: f, now: entry.date).font(W.sans(12, .semibold)).foregroundStyle(W.accent).lineLimit(1)
+                        .widgetAccentable()
                     Tear().padding(.horizontal, -4)
                     HStack(alignment: .top, spacing: 0) {
                         field("TIME", f.time, size: 16).frame(maxWidth: .infinity, alignment: .leading)
@@ -283,7 +304,7 @@ struct NextFilmView: View {
                     }
                 }
                 .padding(14)
-                .background(W.surface.opacity(0.72), in: Stub(corner: 16, notch: 8, at: 0.36))
+                .background(full ? W.surface.opacity(0.72) : .white.opacity(0.1), in: Stub(corner: 16, notch: 8, at: 0.36))
                 .overlay(Stub(corner: 16, notch: 8, at: 0.36).stroke(W.ink.opacity(0.12), lineWidth: 1))
                 .padding(.top, 12)
             }
@@ -313,9 +334,9 @@ struct NextFilmView: View {
                 Text("No films coming up").font(W.sans(12))
             } else {
                 ZStack {
-                    StubGradient(seed: "ndpass").opacity(0.55)
+                    if full { StubGradient(seed: "ndpass").opacity(0.55) }
                     VStack(spacing: 6) {
-                        Image(systemName: "film").font(.system(size: 22, weight: .light)).foregroundStyle(W.amber)
+                        Image(systemName: "film").font(.system(size: 22, weight: .light)).foregroundStyle(W.amber).widgetAccentable()
                         Text("Nothing showing").font(W.serif(family == .systemSmall ? 22 : 28)).foregroundStyle(W.ink)
                         Text("Add a ticket to NDPass").font(W.sans(11)).foregroundStyle(W.muted)
                     }
