@@ -52,6 +52,7 @@ targets:
         UIAppFonts: [InstrumentSerif-Regular.ttf, InstrumentSerif-Italic.ttf, Geist.ttf, GeistMono.ttf]
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"   # iPhone only (XcodeGen's iOS preset says 1,2 per target)
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIconGold AppIconPlatinum"
@@ -97,6 +98,7 @@ targets:
               NSExtensionActivationSupportsText: true
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"   # iPhone only (XcodeGen's iOS preset says 1,2 per target)
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.NDPassShare
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NDPASS_EXTENSION"
@@ -126,6 +128,7 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"   # iPhone only (XcodeGen's iOS preset says 1,2 per target)
         PRODUCT_BUNDLE_IDENTIFIER: com.gios.ndpass.NextShowingWidget
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
