@@ -67,7 +67,7 @@ targets:
       - path: NDPass/Model
       - path: NDPass/Logic
       - path: NDPass/Services
-        excludes: [LiveCountdown.swift, ExpoImport.swift]
+        excludes: [LiveCountdown.swift, ExpoImport.swift, FilmWidget.swift]
       - path: NDPass/UI/Theme.swift
       - path: NDPass/Resources/Geist.ttf
       - path: NDPass/Resources/GeistMono.ttf
@@ -110,6 +110,7 @@ targets:
       - path: NDPassWidgets
       - path: Shared/Countdown.swift
       - path: Shared/StubGradient.swift
+      - path: Shared/NextFilm.swift
       - path: NDPass/Resources/Geist.ttf
       - path: NDPass/Resources/GeistMono.ttf
       - path: NDPass/Resources/InstrumentSerif-Regular.ttf

@@ -6,7 +6,10 @@ import UIKit
 
 @main
 struct NDPassWidgets: WidgetBundle {
-    var body: some Widget { CountdownLiveActivity() }
+    var body: some Widget {
+        NextFilmWidget()
+        CountdownLiveActivity()
+    }
 }
 
 private enum C {
