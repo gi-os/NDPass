@@ -37,10 +37,10 @@ struct RootView: View {
     @State private var openFailed = Store.openFailed
     @State private var keysCameToo = false
 
-    /// Everything that follows the tickets (reminders, calendar events, Live Activities),
-    /// redone together whenever a showing changes.
+    /// Everything that follows the tickets (reminders, calendar events, Live Activities, the
+    /// widget), redone together whenever a showing changes, or its poster arrives.
     private var syncKey: String {
-        passes.map { "\($0.group)\($0.date)\($0.time)\($0.title)\($0.venue)\($0.seat)\($0.kindRaw)\($0.arrival)\($0.gate)" }.sorted().joined(separator: "|")
+        passes.map { "\($0.group)\($0.date)\($0.time)\($0.title)\($0.venue)\($0.seat)\($0.kindRaw)\($0.arrival)\($0.gate)\($0.posterPath ?? "")\($0.logoPath ?? "")" }.sorted().joined(separator: "|")
     }
 
     private func syncAll() async {
@@ -49,6 +49,7 @@ struct RootView: View {
         Reminders.sync(live)
         CalendarSync.sync(live)
         await LiveCountdown.refresh(live)
+        await FilmWidget.refresh(live)
     }
     @State private var sharedAdded = 0
     @State private var tab = 0
