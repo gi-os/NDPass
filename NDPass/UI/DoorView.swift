@@ -17,62 +17,104 @@ struct DoorView: View {
 
     var body: some View {
         let p = passes.indices.contains(index) ? passes[index] : passes.first
+        let fold = Duo.shared.fold
         ZStack {
             Theme.paper.ignoresSafeArea()
-            VStack(spacing: 22) {
-                HStack(spacing: 14) {
-                    if let p { CoverArt(pass: p).frame(width: 58, height: 58).clipShape(StubShape(corner: 12, notch: 7, at: 0.62)) }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(p?.title ?? "").font(Theme.serif(28)).foregroundStyle(Theme.paperInk).lineLimit(2)
-                        Text(subtitle(p)).font(Theme.sans(14)).foregroundStyle(Theme.paperMuted)
-                    }
+            if fold == .phone {
+                VStack(spacing: 22) {
+                    header(p)
                     Spacer(minLength: 0)
+                    code(p, side: 340)
+                    chips
+                    brightness
+                    Spacer(minLength: 0)
+                    done
                 }
-                Spacer(minLength: 0)
-                Group {
-                    if let found = Self.code(for: p) {
-                        Image(uiImage: found.0).interpolation(.none).resizable().scaledToFit()
-                    } else if let d = p?.crop ?? p?.photo, let img = UIImage(data: d) {
-                        Image(uiImage: img).resizable().scaledToFit()
-                    }
+                .padding(.horizontal, 28).padding(.top, 30).padding(.bottom, 20)
+            } else {
+                // iPhone Duo inner display: the code alone on one half, held out to the scanner
+                // (the top half when upright); the ticket, seats and Done on the other.
+                let info = VStack(spacing: 22) {
+                    header(p)
+                    Spacer(minLength: 0)
+                    chips
+                    brightness
+                    done
                 }
-                .padding(22)
-                .frame(maxWidth: 340, maxHeight: 340)
-                .background(.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .shadow(color: Theme.paperInk.opacity(0.18), radius: 24, y: 14)
-                if passes.count > 1 || !(p?.seat.isEmpty ?? true) {
-                    ScrollView(.horizontal) {
-                    HStack(spacing: 10) {
-                        ForEach(Array(passes.enumerated()), id: \.offset) { i, t in
-                            Button { withAnimation(.snappy) { index = i } } label: {
-                                Text(t.seat.isEmpty ? "Ticket \(i + 1)" : t.seat).font(Theme.mono(22))
-                                    .padding(.horizontal, 18).frame(height: 46)
-                                    .foregroundStyle(i == index ? Theme.paper : Theme.paperInk)
-                                    .background(i == index ? Theme.paperInk : Theme.hex(0xefe2d2), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 2)
-                    }
-                    .scrollIndicators(.hidden)
-                    .fixedSize(horizontal: false, vertical: true)
+                .padding(28)
+                let tile = code(p, side: 400).frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
+                HingeSplit(seam: Theme.paperInk.opacity(0.06)) {
+                    if fold == .open { info } else { tile }
+                } second: {
+                    if fold == .open { tile } else { info }
                 }
-                Label("Brightness is up while this is open", systemImage: "sun.max").font(Theme.sans(14)).foregroundStyle(Theme.paperMuted)
-                Spacer(minLength: 0)
-                Button { dismiss() } label: {
-                    Text("Done").font(Theme.sans(16, .medium)).foregroundStyle(Theme.paperInk)
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .overlay(Capsule().stroke(Theme.hex(0xd8c4ae), lineWidth: 1.5))
-                }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 28).padding(.top, 30).padding(.bottom, 20)
         }
         .preferredColorScheme(.light)
         .onAppear { saved = UIScreen.main.brightness; UIScreen.main.brightness = 1 }
         .onDisappear { UIScreen.main.brightness = saved }
         .statusBarHidden()
+    }
+
+    private func header(_ p: Pass?) -> some View {
+        HStack(spacing: 14) {
+            if let p { CoverArt(pass: p).frame(width: 58, height: 58).clipShape(StubShape(corner: 12, notch: 7, at: 0.62)) }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(p?.title ?? "").font(Theme.serif(28)).foregroundStyle(Theme.paperInk).lineLimit(2)
+                Text(subtitle(p)).font(Theme.sans(14)).foregroundStyle(Theme.paperMuted)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func code(_ p: Pass?, side: CGFloat) -> some View {
+        Group {
+            if let found = Self.code(for: p) {
+                Image(uiImage: found.0).interpolation(.none).resizable().scaledToFit()
+            } else if let d = p?.crop ?? p?.photo, let img = UIImage(data: d) {
+                Image(uiImage: img).resizable().scaledToFit()
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: side, maxHeight: side)
+        .background(.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: Theme.paperInk.opacity(0.18), radius: 24, y: 14)
+    }
+
+    @ViewBuilder
+    private var chips: some View {
+        let p = passes.indices.contains(index) ? passes[index] : passes.first
+        if passes.count > 1 || !(p?.seat.isEmpty ?? true) {
+            ScrollView(.horizontal) {
+            HStack(spacing: 10) {
+                ForEach(Array(passes.enumerated()), id: \.offset) { i, t in
+                    Button { withAnimation(.snappy) { index = i } } label: {
+                        Text(t.seat.isEmpty ? "Ticket \(i + 1)" : t.seat).font(Theme.mono(22))
+                            .padding(.horizontal, 18).frame(height: 46)
+                            .foregroundStyle(i == index ? Theme.paper : Theme.paperInk)
+                            .background(i == index ? Theme.paperInk : Theme.hex(0xefe2d2), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 2)
+            }
+            .scrollIndicators(.hidden)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var brightness: some View {
+        Label("Brightness is up while this is open", systemImage: "sun.max").font(Theme.sans(14)).foregroundStyle(Theme.paperMuted)
+    }
+
+    private var done: some View {
+        Button { dismiss() } label: {
+            Text("Done").font(Theme.sans(16, .medium)).foregroundStyle(Theme.paperInk)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .overlay(Capsule().stroke(Theme.hex(0xd8c4ae), lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
     }
 
     private func subtitle(_ p: Pass?) -> String {
@@ -90,7 +132,8 @@ struct DoorView: View {
 }
 
 /// For propping the phone up: the countdown over the art on the top half, the code and the
-/// controls on the bottom. On the iPhone Duo half folded, the halves meet at the hinge.
+/// controls on the bottom. On the iPhone Duo the halves meet at the hinge: one above the other
+/// half folded upright, side by side when it stands open like a book.
 struct CountdownView: View {
     let passes: [Pass]
     @Environment(\.dismiss) private var dismiss
@@ -99,26 +142,28 @@ struct CountdownView: View {
     var body: some View {
         let p = passes.first
         GeometryReader { g in
-            VStack(spacing: 0) {
+            let fold = Duo.shared.fold
+            // Open, the halves sit side by side; otherwise art on top, controls below.
+            let pane = fold == .open ? g.size.width / 2 : g.size.width
+            HingeSplit(axis: fold == .open ? .horizontal : .vertical, gap: fold == .phone ? 2 : Duo.gap, seam: Theme.ink.opacity(0.1)) {
                 ZStack(alignment: .bottomLeading) {
-                    CoverArt(pass: p, preferBackdrop: g.size.width > g.size.height)
+                    CoverArt(pass: p, preferBackdrop: fold == .upright || (fold == .phone && g.size.width > g.size.height))
                     LinearGradient(colors: [Theme.bg.opacity(0.15), Theme.bg.opacity(0.85)], startPoint: .top, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(p?.kind == .transit ? "Departs in" : "Starts in").font(Theme.sans(18)).foregroundStyle(Theme.ink.opacity(0.85))
                         TimelineView(.periodic(from: .now, by: 1)) { c in
-                            Text(Countdown.clock(to: p?.start, now: c.date)).font(Theme.serif(min(150, g.size.width * 0.3))).monospacedDigit()
+                            Text(Countdown.clock(to: p?.start, now: c.date)).font(Theme.serif(min(150, pane * 0.3))).monospacedDigit()
                                 .foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.5)
                         }
                         Text(p?.title ?? "").font(Theme.serif(40, italic: true)).foregroundStyle(Theme.ink).lineLimit(2)
                     }
                     .padding(32)
                 }
-                .frame(height: g.size.height / 2 - 1)
                 .clipped()
-                Rectangle().fill(Theme.ink.opacity(0.1)).frame(height: 2)
+            } second: {
                 HStack(alignment: .top, spacing: 24) {
-                    CodeTile(passes: passes, side: min(220, g.size.width * 0.34))
-                        .frame(maxWidth: min(220, g.size.width * 0.34), alignment: .leading)
+                    CodeTile(passes: passes, side: min(220, pane * 0.34))
+                        .frame(maxWidth: min(220, pane * 0.34), alignment: .leading)
                         .labelsHidden()
                     VStack(spacing: 14) {
                         HStack(spacing: 12) {
@@ -139,7 +184,7 @@ struct CountdownView: View {
                     }
                 }
                 .padding(28)
-                .frame(maxHeight: .infinity, alignment: .top)
+                .frame(maxHeight: .infinity, alignment: fold == .open ? .center : .top)
             }
         }
         .background(Theme.bg.ignoresSafeArea())

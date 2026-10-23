@@ -28,7 +28,11 @@ on the Light Phone III. The Expo version lives on the `expo` branch (tag `expo-f
 - Automatic calendar events (opt-in, Settings > Calendar), skipping showings already in the calendar.
 - Share extension reads and adds tickets without opening the app.
 - Calendar tab and stats (streaks, venues map, habits).
-- On the iPhone Duo's inner display, the list and the ticket sit side by side.
+- iPhone Duo: on the inner display, every screen splits at the fold with nothing on the hinge.
+  Open like a book: Up Next and Collection put the list beside the ticket, Calendar the month
+  beside the day, Stats two columns, the door code on its own half. Half folded upright: the art
+  above the fold and the stub below; the countdown stands on the top half. The outer display and
+  Split View get the phone layout.
 
 Keys (Settings, all optional, Keychain): Anthropic, TMDb, TheSportsDB.
 

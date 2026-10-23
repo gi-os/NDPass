@@ -2,8 +2,9 @@ import SwiftUI
 import SwiftData
 
 /// The next showing, as large as it goes: cover art behind a glass stub with the countdown,
-/// seats and the button to show the ticket. On a wide window (the iPhone Duo's inner display)
-/// the upcoming list takes the left half and the ticket the right, split at the hinge.
+/// seats and the button to show the ticket. On the iPhone Duo's inner display, open: the
+/// upcoming list on the left half and the ticket on the right; upright: the art above the fold
+/// and the stub below it.
 struct TonightView: View {
     @Query(sort: \Pass.createdAt) private var passes: [Pass]
     @State private var path: [UUID] = []
@@ -12,8 +13,12 @@ struct TonightView: View {
     private var upcoming: [[Pass]] { Showings.groups(passes, archived: false) }
 
     var body: some View {
-        GeometryReader { geo in
-            if geo.size.width > 700 { split(geo) } else { phone }
+        Group {
+            switch Duo.shared.fold {
+            case .open: split
+            case .upright: upright
+            case .phone: phone
+            }
         }
         .background(Theme.bg.ignoresSafeArea())
     }
@@ -179,9 +184,8 @@ struct TonightView: View {
 
     // MARK: iPhone Duo inner display
 
-    private func split(_ geo: GeometryProxy) -> some View {
-        let half = geo.size.width / 2
-        return HStack(spacing: 0) {
+    private var split: some View {
+        HingeSplit {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -199,19 +203,59 @@ struct TonightView: View {
                                 .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 32).padding(.top, 40).padding(.bottom, 60)
+                    .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
                 }
                 .background(Theme.bg)
                 .toolbar(.hidden, for: .navigationBar)
             }
-            .frame(width: half - 12)
-            // Nothing sits on the hinge.
-            Rectangle().fill(Theme.ink.opacity(0.06)).frame(width: 24)
+        } second: {
             NavigationStack {
                 if let id = selected ?? upcoming.first?.first?.group { DetailView(group: id).id(id) }
                 else { Theme.bg.overlay(Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted)) }
             }
-            .frame(width: half - 12)
+        }
+    }
+
+    /// Half folded like a laptop: the art and title stand above the fold, the stub and what's
+    /// coming up lie flat below it.
+    private var upright: some View {
+        let g = upcoming.first
+        return NavigationStack(path: $path) {
+            HingeSplit {
+                ZStack(alignment: .top) {
+                    CoverArt(pass: g?.first, preferBackdrop: true).frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(false)
+                    LinearGradient(stops: [.init(color: Theme.bg.opacity(0.35), location: 0), .init(color: .clear, location: 0.3),
+                                           .init(color: Theme.bg.opacity(0.9), location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .allowsHitTesting(false)
+                    VStack(spacing: 0) {
+                        topBar.padding(.top, 54).padding(.horizontal, 24)
+                        Spacer(minLength: 0)
+                        if let p = g?.first {
+                            Group {
+                                if p.logoURL != nil { TitleMark(pass: p, maxHeight: 110, alignment: .center) }
+                                else { Text(p.title).font(Theme.serif(56)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.5).multilineTextAlignment(.center) }
+                            }
+                            .frame(maxWidth: .infinity).padding(.horizontal, 40).padding(.bottom, 24)
+                        }
+                    }
+                }
+                .clipped()
+            } second: {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        if let g { stub(g).padding(.horizontal, 16) } else { empty.padding(.horizontal, 16) }
+                        if upcoming.count > 1 { comingUp(Array(upcoming.dropFirst())) }
+                        Color.clear.frame(height: 8)
+                    }
+                    .padding(.top, 16)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .ignoresSafeArea(edges: .top)
+            .background(Theme.bg)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: UUID.self) { DetailView(group: $0) }
         }
     }
 }
