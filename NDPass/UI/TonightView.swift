@@ -27,23 +27,28 @@ struct TonightView: View {
 
     private var phone: some View {
         NavigationStack(path: $path) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    hero(upcoming.first)
-                    if upcoming.count > 1 { comingUp(Array(upcoming.dropFirst())) }
-                    // Just enough to clear the tab bar; no empty scroll space below Coming up.
-                    Color.clear.frame(height: 8)
+            // The art runs under the status bar and, on the iPhone Duo, under the tab bar and
+            // status bar along the side; the title, + and stub keep clear of them.
+            GeometryReader { geo in
+                let side = EdgeInsets(top: 0, leading: geo.safeAreaInsets.leading, bottom: 0, trailing: geo.safeAreaInsets.trailing)
+                ScrollView {
+                    VStack(spacing: 0) {
+                        hero(upcoming.first, side: side)
+                        if upcoming.count > 1 { comingUp(Array(upcoming.dropFirst()), side: side) }
+                        // Just enough to clear the tab bar; no empty scroll space below Coming up.
+                        Color.clear.frame(height: 8)
+                    }
                 }
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
-            .ignoresSafeArea(edges: .top)
+            .ignoresSafeArea(edges: [.top, .horizontal])
             .background(Theme.bg)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { DetailView(group: $0) }
         }
     }
 
-    private func hero(_ g: [Pass]?) -> some View {
+    private func hero(_ g: [Pass]?, side: EdgeInsets = EdgeInsets()) -> some View {
         ZStack(alignment: .top) {
             // Pulling down past the top zooms the art to fill instead of showing black above it.
             CoverArt(pass: g?.first, preferBackdrop: g?.first?.backdropPath != nil).frame(height: 560).frame(maxWidth: .infinity)
@@ -65,7 +70,7 @@ struct TonightView: View {
                 }
                 .allowsHitTesting(false)
             VStack(spacing: 0) {
-                topBar.padding(.top, 62).padding(.horizontal, 20)
+                topBar.padding(.top, 62).padding(.horizontal, 20).padding(side)
                     .visualEffect { content, proxy in
                         content.offset(y: -max(0, proxy.frame(in: .scrollView(axis: .vertical)).minY))
                     }
@@ -74,11 +79,12 @@ struct TonightView: View {
                         TitleMark(pass: p, maxHeight: 96, alignment: .center)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.horizontal, 32)
+                            .padding(side)
                     } else { Color.clear }
                 }
                 .frame(height: 168, alignment: .bottom)
                 .padding(.bottom, 12)
-                if let g { stub(g).padding(.horizontal, 16) } else { empty.padding(.horizontal, 16) }
+                Group { if let g { stub(g) } else { empty } }.padding(.horizontal, 16).padding(side)
             }
         }
     }
@@ -165,9 +171,9 @@ struct TonightView: View {
         .glass(in: StubShape(corner: 28, notch: 14, at: 0.5))
     }
 
-    private func comingUp(_ gs: [[Pass]]) -> some View {
+    private func comingUp(_ gs: [[Pass]], side: EdgeInsets = EdgeInsets()) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Coming up").font(Theme.serif(28)).foregroundStyle(Theme.ink).padding(.horizontal, 20)
+            Text("Coming up").font(Theme.serif(28)).foregroundStyle(Theme.ink).padding(.horizontal, 20).padding(side)
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(gs, id: \.first!.group) { g in
@@ -175,7 +181,8 @@ struct TonightView: View {
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 20)
+                // Starts clear of the side bar and scrolls under it.
+                .padding(.horizontal, 20).padding(side)
             }
             .scrollIndicators(.hidden)
         }
