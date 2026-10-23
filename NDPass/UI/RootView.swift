@@ -80,7 +80,7 @@ struct RootView: View {
         // The whole window, past the safe area: which way the iPhone Duo is folded.
         .background {
             Color.clear.ignoresSafeArea()
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { Duo.shared.update($0) }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { Duo.shared.update(Duo.windowSize(or: $0)) }
         }
         .tint(Theme.accent)
         .preferredColorScheme(.dark)

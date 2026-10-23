@@ -43,7 +43,7 @@ struct DoorView: View {
                 }
                 .padding(28)
                 let tile = code(p, side: 400).frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
-                HingeSplit(seam: Theme.paperInk.opacity(0.06)) {
+                HingeSplit {
                     if fold == .open { info } else { tile }
                 } second: {
                     if fold == .open { tile } else { info }
@@ -145,7 +145,7 @@ struct CountdownView: View {
             let fold = Duo.shared.fold
             // Open, the halves sit side by side; otherwise art on top, controls below.
             let pane = fold == .open ? g.size.width / 2 : g.size.width
-            HingeSplit(axis: fold == .open ? .horizontal : .vertical, gap: fold == .phone ? 2 : Duo.gap, seam: Theme.ink.opacity(0.1)) {
+            HingeSplit(axis: fold == .open ? .horizontal : .vertical, gap: fold == .phone ? 2 : Duo.gap, seam: fold == .phone ? Theme.ink.opacity(0.1) : .clear) {
                 ZStack(alignment: .bottomLeading) {
                     CoverArt(pass: p, preferBackdrop: fold == .upright || (fold == .phone && g.size.width > g.size.height))
                     LinearGradient(colors: [Theme.bg.opacity(0.15), Theme.bg.opacity(0.85)], startPoint: .top, endPoint: .bottom)

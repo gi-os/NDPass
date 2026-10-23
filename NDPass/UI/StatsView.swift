@@ -16,7 +16,7 @@ struct StatsView: View {
                     // iPhone Duo inner display: totals, records and what you go to on the left
                     // half; habits and places on the right.
                     HingeSplit {
-                        column { overview(s) }
+                        column { section("Totals", first: true); overview(s) }
                     } second: {
                         column { more(s) }
                     }
@@ -77,7 +77,7 @@ struct StatsView: View {
 
     @ViewBuilder
     private func more(_ s: Stats) -> some View {
-        section("Habits")
+        section("Habits", first: Duo.shared.fold == .open)
         HStack(spacing: 14) {
             tile(s.favoriteDay ?? "—", "favorite day")
             tile(s.usualTime ?? "—", "usually")
@@ -130,8 +130,9 @@ struct StatsView: View {
     private func label(_ k: EventKind) -> String { k.plural }
     private func money(_ v: Double) -> String { v.formatted(.currency(code: Locale.current.currency?.identifier ?? "USD").precision(.fractionLength(0))) }
 
-    private func section(_ t: String) -> some View {
-        Text(t).font(Theme.serif(28)).foregroundStyle(Theme.ink).padding(.top, 12)
+    /// `first`: tops a column, level with the one beside it.
+    private func section(_ t: String, first: Bool = false) -> some View {
+        Text(t).font(Theme.serif(28)).foregroundStyle(Theme.ink).padding(.top, first ? 0 : 12)
     }
 
     private func tile(_ v: String, _ label: String) -> some View {

@@ -38,11 +38,14 @@ struct CalendarView: View {
         } else {
             // iPhone Duo inner display: the month on one half, the day's tickets on the other.
             HingeSplit {
-                NavigationStack {
-                    ScrollView { monthPanel(days).padding(.vertical) }
-                        .background(Theme.bg)
-                        .navigationTitle("Calendar")
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Calendar").font(Theme.serif(42)).foregroundStyle(Theme.ink).padding(.horizontal)
+                        monthPanel(days)
+                    }
+                    .padding(.vertical)
                 }
+                .background(Theme.bg)
             } second: {
                 NavigationStack {
                     ScrollView {
