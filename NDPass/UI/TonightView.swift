@@ -9,6 +9,8 @@ struct TonightView: View {
     @Query(sort: \Pass.createdAt) private var passes: [Pass]
     @State private var path: [UUID] = []
     @State private var selected: UUID?
+    /// Side bars to keep the text clear of (the iPhone Duo's side tab bar).
+    @State private var side = EdgeInsets()
 
     private var upcoming: [[Pass]] { Showings.groups(passes, archived: false) }
 
@@ -29,19 +31,20 @@ struct TonightView: View {
         NavigationStack(path: $path) {
             // The art runs under the status bar and, on the iPhone Duo, under the tab bar and
             // status bar along the side; the title, + and stub keep clear of them.
-            GeometryReader { geo in
-                let side = EdgeInsets(top: 0, leading: geo.safeAreaInsets.leading, bottom: 0, trailing: geo.safeAreaInsets.trailing)
+            let inset = EdgeInsets(top: 0, leading: side.leading, bottom: 0, trailing: side.trailing)
+            ZStack {
                 ScrollView {
                     VStack(spacing: 0) {
-                        hero(upcoming.first, side: side)
-                        if upcoming.count > 1 { comingUp(Array(upcoming.dropFirst()), side: side) }
+                        hero(upcoming.first, side: inset)
+                        if upcoming.count > 1 { comingUp(Array(upcoming.dropFirst()), side: inset) }
                         // Just enough to clear the tab bar; no empty scroll space below Coming up.
                         Color.clear.frame(height: 8)
                     }
                 }
                 .scrollIndicators(.hidden)
+                .ignoresSafeArea(edges: [.top, .horizontal])
             }
-            .ignoresSafeArea(edges: [.top, .horizontal])
+            .readSafeInsets($side)
             .background(Theme.bg)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { DetailView(group: $0) }
@@ -192,30 +195,33 @@ struct TonightView: View {
     // MARK: iPhone Duo inner display
 
     private var split: some View {
-        HingeSplit {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack {
-                        Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
-                        Spacer()
-                        ScanMenu(onAdded: { p in selected = p.group }) {
-                            Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
+        let id = selected ?? upcoming.first?.first?.group
+        return ZStack {
+            FoldBackdrop(pass: upcoming.first(where: { $0.first?.group == id })?.first)
+            HingeSplit {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack {
+                            Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
+                            Spacer()
+                            ScanMenu(onAdded: { p in selected = p.group }) {
+                                Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
+                                    .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
+                            }
+                        }
+                        if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }
+                        ForEach(upcoming, id: \.first!.group) { g in
+                            Button { selected = g[0].group } label: { TicketCard(passes: g, selected: (selected ?? upcoming.first?.first?.group) == g[0].group) }
+                                .buttonStyle(.plain)
                         }
                     }
-                    if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }
-                    ForEach(upcoming, id: \.first!.group) { g in
-                        Button { selected = g[0].group } label: { TicketCard(passes: g, selected: (selected ?? upcoming.first?.first?.group) == g[0].group) }
-                            .buttonStyle(.plain)
-                    }
+                    .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
                 }
-                .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
-            }
-            .background(Theme.bg)
-        } second: {
-            NavigationStack {
-                if let id = selected ?? upcoming.first?.first?.group { DetailView(group: id).id(id) }
-                else { Theme.bg.overlay(Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted)) }
+            } second: {
+                NavigationStack {
+                    if let id { DetailView(group: id, artBehind: true).id(id) }
+                    else { Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted).containerBackground(.clear, for: .navigation) }
+                }
             }
         }
     }
