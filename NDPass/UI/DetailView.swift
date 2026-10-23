@@ -31,23 +31,30 @@ struct DetailView: View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             if let p = passes.first {
-                ScrollView {
-                    ZStack(alignment: .top) {
-                        CoverArt(pass: p, preferBackdrop: p.backdropPath != nil).frame(height: 500).frame(maxWidth: .infinity)
-                        LinearGradient(stops: [.init(color: Theme.bg.opacity(0.4), location: 0), .init(color: .clear, location: 0.22),
-                                               .init(color: Theme.bg.opacity(0.9), location: 0.8), .init(color: Theme.bg, location: 1)],
-                                       startPoint: .top, endPoint: .bottom).frame(height: 500)
-                        VStack(alignment: .leading, spacing: 0) {
-                            Spacer().frame(height: 270)
-                            titleBlock(p).padding(.horizontal, 22)
-                            panel(p).padding(.horizontal, 16).padding(.top, 18)
-                            extras(p).padding(.horizontal, 16).padding(.top, 14)
+                // The art runs under the status bar and, on the iPhone Duo, under the side tab
+                // bar, and fills the pane top to bottom there; the text keeps clear of the bar.
+                GeometryReader { geo in
+                    let side = EdgeInsets(top: 0, leading: geo.safeAreaInsets.leading, bottom: 0, trailing: geo.safeAreaInsets.trailing)
+                    let art = Duo.shared.fold == .phone ? 500 : max(500, geo.size.height)
+                    ScrollView {
+                        ZStack(alignment: .top) {
+                            CoverArt(pass: p, preferBackdrop: p.backdropPath != nil).frame(height: art).frame(maxWidth: .infinity)
+                            LinearGradient(stops: [.init(color: Theme.bg.opacity(0.4), location: 0), .init(color: .clear, location: 0.22),
+                                                   .init(color: Theme.bg.opacity(0.9), location: 0.8), .init(color: Theme.bg, location: 1)],
+                                           startPoint: .top, endPoint: .bottom).frame(height: art)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Spacer().frame(height: 270)
+                                titleBlock(p).padding(.horizontal, 22)
+                                panel(p).padding(.horizontal, 16).padding(.top, 18)
+                                extras(p).padding(.horizontal, 16).padding(.top, 14)
+                            }
+                            .padding(.bottom, 60)
+                            .padding(side)
                         }
-                        .padding(.bottom, 60)
                     }
+                    .scrollIndicators(.hidden)
                 }
-                .scrollIndicators(.hidden)
-                .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea(edges: [.top, .horizontal])
             } else {
                 Text("This ticket is gone.").font(Theme.serif(28)).foregroundStyle(Theme.muted)
             }

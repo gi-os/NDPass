@@ -51,9 +51,12 @@ struct HingeSplit<First: View, Second: View>: View {
 
     var body: some View {
         let duo = Duo.shared
+        let ax = axis ?? (duo.fold == .upright ? .vertical : .horizontal)
+        // The panes reach the window's edges along the split, so art can run under the side
+        // tab bar; each pane gets back only the safe area on its own outer edge.
         GeometryReader { geo in
             let f = geo.frame(in: .global)
-            let ax = axis ?? (duo.fold == .upright ? .vertical : .horizontal)
+            let inset = geo.safeAreaInsets
             let length = ax == .horizontal ? f.width : f.height
             // The hinge is the middle of the window, wherever this view sits in it.
             let hinge = duo.fold == .phone ? length / 2
@@ -62,17 +65,18 @@ struct HingeSplit<First: View, Second: View>: View {
             let a = max(0, cut - gap / 2), b = max(0, length - cut - gap / 2)
             if ax == .horizontal {
                 HStack(spacing: 0) {
-                    first.frame(width: a)
+                    first.safeAreaPadding(.leading, inset.leading).frame(width: a)
                     seam.frame(width: gap)
-                    second.frame(width: b)
+                    second.safeAreaPadding(.trailing, inset.trailing).frame(width: b)
                 }
             } else {
                 VStack(spacing: 0) {
-                    first.frame(height: a)
+                    first.safeAreaPadding(.top, inset.top).frame(height: a)
                     seam.frame(height: gap)
-                    second.frame(height: b)
+                    second.safeAreaPadding(.bottom, inset.bottom).frame(height: b)
                 }
             }
         }
+        .ignoresSafeArea(edges: ax == .horizontal ? .horizontal : .vertical)
     }
 }

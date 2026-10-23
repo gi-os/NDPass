@@ -228,12 +228,15 @@ struct TonightView: View {
             HingeSplit {
                 ZStack(alignment: .top) {
                     CoverArt(pass: g?.first, preferBackdrop: true).frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(false)
+                        .ignoresSafeArea()
                     LinearGradient(stops: [.init(color: Theme.bg.opacity(0.35), location: 0), .init(color: .clear, location: 0.3),
                                            .init(color: Theme.bg.opacity(0.9), location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                         .allowsHitTesting(false)
+                        .ignoresSafeArea()
                     VStack(spacing: 0) {
-                        topBar.padding(.top, 54).padding(.horizontal, 24)
+                        // The pane keeps the status bar's safe area; the art above ignores it.
+                        topBar.padding(.top, 12).padding(.horizontal, 24)
                         Spacer(minLength: 0)
                         if let p = g?.first {
                             Group {
@@ -256,7 +259,6 @@ struct TonightView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .ignoresSafeArea(edges: .top)
             .background(Theme.bg)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { DetailView(group: $0) }
