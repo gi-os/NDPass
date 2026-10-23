@@ -193,28 +193,25 @@ struct TonightView: View {
 
     private var split: some View {
         HingeSplit {
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        HStack {
-                            Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
-                            Spacer()
-                            ScanMenu(onAdded: { p in selected = p.group }) {
-                                Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
-                                    .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
-                            }
-                        }
-                        if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }
-                        ForEach(upcoming, id: \.first!.group) { g in
-                            Button { selected = g[0].group } label: { TicketCard(passes: g, selected: (selected ?? upcoming.first?.first?.group) == g[0].group) }
-                                .buttonStyle(.plain)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
+                        Spacer()
+                        ScanMenu(onAdded: { p in selected = p.group }) {
+                            Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
                         }
                     }
-                    .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
+                    if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }
+                    ForEach(upcoming, id: \.first!.group) { g in
+                        Button { selected = g[0].group } label: { TicketCard(passes: g, selected: (selected ?? upcoming.first?.first?.group) == g[0].group) }
+                            .buttonStyle(.plain)
+                    }
                 }
-                .background(Theme.bg)
-                .toolbar(.hidden, for: .navigationBar)
+                .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
             }
+            .background(Theme.bg)
         } second: {
             NavigationStack {
                 if let id = selected ?? upcoming.first?.first?.group { DetailView(group: id).id(id) }

@@ -29,6 +29,13 @@ final class Duo {
     var fold: Fold { Fold.of(window) }
 
     func update(_ size: CGSize) { if size != window { window = size } }
+
+    /// The window itself. What SwiftUI measures leaves out the iPhone Duo's side tab bar, which
+    /// put the cut 39 points short of the hinge.
+    static func windowSize(or measured: CGSize) -> CGSize {
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+        return (windows.first(where: \.isKeyWindow) ?? windows.first)?.bounds.size ?? measured
+    }
 }
 
 /// Two panes that meet at the fold, with nothing on the hinge: side by side when the inner
@@ -37,7 +44,8 @@ final class Duo {
 struct HingeSplit<First: View, Second: View>: View {
     var axis: Axis?
     var gap: CGFloat = Duo.gap
-    var seam: Color = Theme.ink.opacity(0.06)
+    /// Clear: the gap is the page itself, with nothing drawn on the hinge.
+    var seam: Color = .clear
     @ViewBuilder var first: First
     @ViewBuilder var second: Second
 

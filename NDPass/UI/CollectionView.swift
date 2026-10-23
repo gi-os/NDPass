@@ -35,7 +35,9 @@ struct CollectionView: View {
     var body: some View {
         if Duo.shared.fold == .open {
             HingeSplit {
-                NavigationStack { grid(columns: 2).toolbar(.hidden, for: .navigationBar) }
+                // No NavigationStack of its own: one picked up the side tab bar's inset and
+                // left a dead band before the hinge.
+                grid(columns: 2)
             } second: {
                 NavigationStack {
                     if let id = selected ?? groups.first?.first?.group { DetailView(group: id).id(id) }
