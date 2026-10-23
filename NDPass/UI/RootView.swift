@@ -77,6 +77,11 @@ struct RootView: View {
             Tab("Settings", systemImage: "gearshape", value: 4) { SettingsView() }
         }
         .environmentObject(importer)
+        // The whole window, past the safe area: which way the iPhone Duo is folded.
+        .background {
+            Color.clear.ignoresSafeArea()
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { Duo.shared.update($0) }
+        }
         .tint(Theme.accent)
         .preferredColorScheme(.dark)
         .task { Supporter.shared.start() }

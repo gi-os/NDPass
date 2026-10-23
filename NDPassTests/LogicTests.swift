@@ -433,3 +433,16 @@ final class ShowingTests: XCTestCase {
         XCTAssertTrue(Reminders.plan([p]).isEmpty)
     }
 }
+
+final class FoldTests: XCTestCase {
+    func testInnerDisplayOpenAndUpright() {
+        XCTAssertEqual(Fold.of(CGSize(width: 890, height: 626)), .open)
+        XCTAssertEqual(Fold.of(CGSize(width: 626, height: 890)), .upright)
+    }
+
+    func testPhonesOuterDisplayAndSplitViewGetThePhoneLayout() {
+        XCTAssertEqual(Fold.of(CGSize(width: 440, height: 956)), .phone)   // Pro Max
+        XCTAssertEqual(Fold.of(CGSize(width: 956, height: 440)), .phone)   // Pro Max, landscape
+        XCTAssertEqual(Fold.of(CGSize(width: 445, height: 626)), .phone)   // half of the inner display in Split View
+    }
+}

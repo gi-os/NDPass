@@ -21,37 +21,68 @@ struct CalendarView: View {
 
     var body: some View {
         let days = byDay
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    HStack {
-                        Button { shift(-1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
-                            .accessibilityLabel("Previous month")
-                        Spacer()
-                        Text(month.formatted(.dateTime.month(.wide).year())).font(.title3.bold())
-                        Spacer()
-                        Button { shift(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
-                            .accessibilityLabel("Next month")
+        if Duo.shared.fold == .phone {
+            NavigationStack {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        monthPanel(days)
+                        if let picked { dayList(picked, days) }
                     }
-                    .padding(.horizontal)
-                    weekdays
-                    grid(days)
-                    if let picked {
-                        let gs = days[cal.startOfDay(for: picked)] ?? []
-                        if gs.isEmpty {
-                            Text("Nothing on \(picked.formatted(.dateTime.weekday(.wide).month(.wide).day())).").font(Theme.sans(14)).foregroundStyle(Theme.muted)
-                        }
-                        ForEach(gs, id: \.first!.group) { g in
-                            NavigationLink(value: g[0].group) { TicketCard(passes: g) }.buttonStyle(.plain).padding(.horizontal)
-                        }
-                    }
+                    .padding(.vertical)
+                    .padding(.bottom, 100)
                 }
-                .padding(.vertical)
-                .padding(.bottom, 100)
+                .background(Theme.bg)
+                .navigationTitle("Calendar")
+                .navigationDestination(for: UUID.self) { DetailView(group: $0) }
             }
-            .background(Theme.bg)
-            .navigationTitle("Calendar")
-            .navigationDestination(for: UUID.self) { DetailView(group: $0) }
+        } else {
+            // iPhone Duo inner display: the month on one half, the day's tickets on the other.
+            HingeSplit {
+                NavigationStack {
+                    ScrollView { monthPanel(days).padding(.vertical) }
+                        .background(Theme.bg)
+                        .navigationTitle("Calendar")
+                }
+            } second: {
+                NavigationStack {
+                    ScrollView {
+                        VStack(spacing: 16) { dayList(picked ?? Date(), days) }.padding(.vertical).padding(.bottom, 40)
+                    }
+                    .background(Theme.bg)
+                    .navigationTitle((picked ?? Date()).formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationDestination(for: UUID.self) { DetailView(group: $0) }
+                }
+            }
+            .background(Theme.bg.ignoresSafeArea())
+        }
+    }
+
+    private func monthPanel(_ days: [Date: [[Pass]]]) -> some View {
+        VStack(spacing: 16) {
+            HStack {
+                Button { shift(-1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Previous month")
+                Spacer()
+                Text(month.formatted(.dateTime.month(.wide).year())).font(.title3.bold())
+                Spacer()
+                Button { shift(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                    .accessibilityLabel("Next month")
+            }
+            .padding(.horizontal)
+            weekdays
+            grid(days)
+        }
+    }
+
+    @ViewBuilder
+    private func dayList(_ d: Date, _ days: [Date: [[Pass]]]) -> some View {
+        let gs = days[cal.startOfDay(for: d)] ?? []
+        if gs.isEmpty {
+            Text("Nothing on \(d.formatted(.dateTime.weekday(.wide).month(.wide).day())).").font(Theme.sans(14)).foregroundStyle(Theme.muted)
+        }
+        ForEach(gs, id: \.first!.group) { g in
+            NavigationLink(value: g[0].group) { TicketCard(passes: g) }.buttonStyle(.plain).padding(.horizontal)
         }
     }
 
