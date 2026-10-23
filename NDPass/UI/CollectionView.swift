@@ -34,17 +34,20 @@ struct CollectionView: View {
 
     var body: some View {
         if Duo.shared.fold == .open {
-            HingeSplit {
-                // No NavigationStack of its own: one picked up the side tab bar's inset and
-                // left a dead band before the hinge.
-                grid(columns: 2)
-            } second: {
-                NavigationStack {
-                    if let id = selected ?? groups.first?.first?.group { DetailView(group: id).id(id) }
-                    else { Theme.bg.overlay(Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted)) }
+            let id = selected ?? groups.first?.first?.group
+            ZStack {
+                FoldBackdrop(pass: groups.first(where: { $0.first?.group == id })?.first)
+                HingeSplit {
+                    // No NavigationStack of its own: one picked up the side tab bar's inset and
+                    // left a dead band before the hinge.
+                    grid(columns: 2)
+                } second: {
+                    NavigationStack {
+                        if let id { DetailView(group: id, artBehind: true).id(id) }
+                        else { Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted).containerBackground(.clear, for: .navigation) }
+                    }
                 }
             }
-            .background(Theme.bg.ignoresSafeArea())
         } else {
             NavigationStack {
                 grid(columns: nil)
@@ -97,6 +100,7 @@ struct CollectionView: View {
             }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 120)
         }
-        .background(Theme.bg)
+        // Open on the iPhone Duo the art shows through from behind.
+        .background(picking ? Color.clear : Theme.bg)
     }
 }

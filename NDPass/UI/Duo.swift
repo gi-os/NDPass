@@ -48,35 +48,88 @@ struct HingeSplit<First: View, Second: View>: View {
     var seam: Color = .clear
     @ViewBuilder var first: First
     @ViewBuilder var second: Second
+    @State private var inset = EdgeInsets()
 
     var body: some View {
         let duo = Duo.shared
         let ax = axis ?? (duo.fold == .upright ? .vertical : .horizontal)
         // The panes reach the window's edges along the split, so art can run under the side
         // tab bar; each pane gets back only the safe area on its own outer edge.
-        GeometryReader { geo in
-            let f = geo.frame(in: .global)
-            let inset = geo.safeAreaInsets
-            let length = ax == .horizontal ? f.width : f.height
-            // The hinge is the middle of the window, wherever this view sits in it.
-            let hinge = duo.fold == .phone ? length / 2
-                : (ax == .horizontal ? duo.window.width / 2 - f.minX : duo.window.height / 2 - f.minY)
-            let cut = min(max(hinge, length * 0.3), length * 0.7)
-            let a = max(0, cut - gap / 2), b = max(0, length - cut - gap / 2)
-            if ax == .horizontal {
-                HStack(spacing: 0) {
-                    first.safeAreaPadding(.leading, inset.leading).frame(width: a)
-                    seam.frame(width: gap)
-                    second.safeAreaPadding(.trailing, inset.trailing).frame(width: b)
-                }
-            } else {
-                VStack(spacing: 0) {
-                    first.safeAreaPadding(.top, inset.top).frame(height: a)
-                    seam.frame(height: gap)
-                    second.safeAreaPadding(.bottom, inset.bottom).frame(height: b)
+        ZStack {
+            GeometryReader { geo in
+                let f = geo.frame(in: .global)
+                let length = ax == .horizontal ? f.width : f.height
+                // The hinge is the middle of the window, wherever this view sits in it.
+                let hinge = duo.fold == .phone ? length / 2
+                    : (ax == .horizontal ? duo.window.width / 2 - f.minX : duo.window.height / 2 - f.minY)
+                let cut = min(max(hinge, length * 0.3), length * 0.7)
+                let a = max(0, cut - gap / 2), b = max(0, length - cut - gap / 2)
+                if ax == .horizontal {
+                    HStack(spacing: 0) {
+                        first.safeAreaPadding(.leading, inset.leading).frame(width: a)
+                        seam.frame(width: gap)
+                        second.safeAreaPadding(.trailing, inset.trailing).frame(width: b)
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        first.safeAreaPadding(.top, inset.top).frame(height: a)
+                        seam.frame(height: gap)
+                        second.safeAreaPadding(.bottom, inset.bottom).frame(height: b)
+                    }
                 }
             }
+            .ignoresSafeArea(edges: ax == .horizontal ? .horizontal : .vertical)
         }
-        .ignoresSafeArea(edges: ax == .horizontal ? .horizontal : .vertical)
+        .readSafeInsets($inset)
+    }
+}
+
+extension View {
+    /// How far the safe area sits in from each edge of the window around this view (the iPhone
+    /// Duo's side tab bar, a landscape notch), measured from where views land rather than from
+    /// GeometryProxy.safeAreaInsets, which reads zero beside the Duo's side bar once a view ignores
+    /// the safe area. Put it on a view that keeps to the safe area.
+    func readSafeInsets(_ insets: Binding<EdgeInsets>) -> some View { modifier(SafeInsetsReader(insets: insets)) }
+}
+
+private struct SafeInsetsReader: ViewModifier {
+    @Binding var insets: EdgeInsets
+    @State private var full = CGRect.zero
+    @State private var safe = CGRect.zero
+
+    func body(content: Content) -> some View {
+        content
+            .background { Color.clear.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { safe = $0; report() } }
+            .background { Color.clear.ignoresSafeArea().onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { full = $0; report() } }
+    }
+
+    private func report() {
+        guard full != .zero, safe != .zero else { return }
+        let i = EdgeInsets(top: max(0, safe.minY - full.minY), leading: max(0, safe.minX - full.minX),
+                           bottom: max(0, full.maxY - safe.maxY), trailing: max(0, full.maxX - safe.maxX))
+        if i != insets { insets = i }
+    }
+}
+
+/// Behind the whole open iPhone Duo: the picked showing's art, full strength behind the ticket
+/// and fading out to the left under the list.
+struct FoldBackdrop: View {
+    let pass: Pass?
+
+    var body: some View {
+        ZStack {
+            Theme.bg
+            CoverArt(pass: pass, preferBackdrop: true)
+                .mask(LinearGradient(stops: [.init(color: .black.opacity(0.22), location: 0), .init(color: .black.opacity(0.4), location: 0.38),
+                                             .init(color: .black, location: 0.62)], startPoint: .leading, endPoint: .trailing))
+                .id(pass?.group)
+                .transition(.opacity)
+            LinearGradient(stops: [.init(color: Theme.bg.opacity(0.35), location: 0), .init(color: .clear, location: 0.2),
+                                   .init(color: .clear, location: 0.5), .init(color: Theme.bg.opacity(0.9), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        }
+        .animation(.easeInOut(duration: 0.35), value: pass?.group)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
