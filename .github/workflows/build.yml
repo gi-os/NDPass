@@ -35,9 +35,12 @@ permissions:
 
 jobs:
   ship:
-    runs-on: macos-15
+    # Xcode 27.1 (iOS 27.1 SDK): anything built with an older SDK is letterboxed in a
+    # phone-sized box on the iPhone Duo's inner display.
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
+      XCODE: "27.1"
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
