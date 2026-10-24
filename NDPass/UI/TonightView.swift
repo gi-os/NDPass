@@ -9,8 +9,6 @@ struct TonightView: View {
     @Query(sort: \Pass.createdAt) private var passes: [Pass]
     @State private var path: [UUID] = []
     @State private var selected: UUID?
-    /// Side bars to keep the text clear of (the iPhone Duo's side tab bar).
-    @State private var side = EdgeInsets()
 
     private var upcoming: [[Pass]] { Showings.groups(passes, archived: false) }
 
@@ -31,8 +29,8 @@ struct TonightView: View {
         NavigationStack(path: $path) {
             // The art runs under the status bar and, on the iPhone Duo, under the tab bar and
             // status bar along the side; the title, + and stub keep clear of them.
-            let inset = EdgeInsets(top: 0, leading: side.leading, bottom: 0, trailing: side.trailing)
-            ZStack {
+            EdgeToEdge(edges: [.top, .horizontal]) { side, _ in
+                let inset = EdgeInsets(top: 0, leading: side.leading, bottom: 0, trailing: side.trailing)
                 ScrollView {
                     VStack(spacing: 0) {
                         hero(upcoming.first, side: inset)
@@ -42,9 +40,7 @@ struct TonightView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
-                .ignoresSafeArea(edges: [.top, .horizontal])
             }
-            .readSafeInsets($side)
             .background(Theme.bg)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { DetailView(group: $0) }
@@ -196,34 +192,32 @@ struct TonightView: View {
 
     private var split: some View {
         let id = selected ?? upcoming.first?.first?.group
-        return ZStack {
-            FoldBackdrop(pass: upcoming.first(where: { $0.first?.group == id })?.first)
-            HingeSplit {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        HStack {
-                            Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
-                            Spacer()
-                            ScanMenu(onAdded: { p in selected = p.group }) {
-                                Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
-                                    .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
-                            }
-                        }
-                        if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }
-                        ForEach(upcoming, id: \.first!.group) { g in
-                            Button { selected = g[0].group } label: { TicketCard(passes: g, selected: (selected ?? upcoming.first?.first?.group) == g[0].group) }
-                                .buttonStyle(.plain)
+        return HingeSplit {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Text("NDPass").font(Theme.serif(46)).foregroundStyle(Theme.ink)
+                        Spacer()
+                        ScanMenu(onAdded: { p in selected = p.group }) {
+                            Label("Scan a stub", systemImage: "plus").font(Theme.sans(15, .semibold)).foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 18).frame(height: 46).glass(in: Capsule(), interactive: true)
                         }
                     }
-                    .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
+                    if upcoming.isEmpty { Text("No upcoming tickets.").font(Theme.sans(16)).foregroundStyle(Theme.muted) }
+                    ForEach(upcoming, id: \.first!.group) { g in
+                        Button { selected = g[0].group } label: { TicketCard(passes: g, selected: (selected ?? upcoming.first?.first?.group) == g[0].group) }
+                            .buttonStyle(.plain)
+                    }
                 }
-            } second: {
-                NavigationStack {
-                    if let id { DetailView(group: id, artBehind: true).id(id) }
-                    else { Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted).containerBackground(.clear, for: .navigation) }
-                }
+                .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 60)
+            }
+        } second: {
+            NavigationStack {
+                if let id { DetailView(group: id, artBehind: true).id(id) }
+                else { Text("Pick a ticket").font(Theme.serif(30)).foregroundStyle(Theme.muted).containerBackground(.clear, for: .navigation) }
             }
         }
+        .background { FoldBackdrop(pass: upcoming.first(where: { $0.first?.group == id })?.first) }
     }
 
     /// Half folded like a laptop: the art and title stand above the fold, the stub and what's

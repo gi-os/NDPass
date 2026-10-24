@@ -23,7 +23,6 @@ struct DetailView: View {
     @State private var confirmDelete = false
     /// The art is drawn behind the whole window (the open iPhone Duo), not here.
     let artBehind: Bool
-    @State private var side = EdgeInsets()
 
     init(group: UUID, artBehind: Bool = false) {
         self.group = group
@@ -32,13 +31,15 @@ struct DetailView: View {
     }
 
     var body: some View {
-        ZStack {
-            if !artBehind { Theme.bg.ignoresSafeArea() }
+        // No full-screen layer beside the content: one that ignores the safe area can stretch its
+        // stack to the whole window, and the side bar's inset is measured from the stack's frame.
+        // The page color is the navigation container's background instead.
+        Group {
             if let p = passes.first {
                 // The art runs under the status bar and, on the iPhone Duo, under the side tab
                 // bar, and fills the pane top to bottom there; the text keeps clear of the bar.
-                GeometryReader { geo in
-                    let art = Duo.shared.fold == .phone ? 500 : max(500, geo.size.height)
+                EdgeToEdge(edges: [.top, .horizontal]) { side, frame in
+                    let art = Duo.shared.fold == .phone ? 500 : max(500, frame.height)
                     ScrollView {
                         ZStack(alignment: .top) {
                             if artBehind {
@@ -61,12 +62,10 @@ struct DetailView: View {
                     }
                     .scrollIndicators(.hidden)
                 }
-                .ignoresSafeArea(edges: [.top, .horizontal])
             } else {
                 Text("This ticket is gone.").font(Theme.serif(28)).foregroundStyle(Theme.muted)
             }
         }
-        .readSafeInsets($side)
         // Behind the whole window on the open iPhone Duo, the art shows through the stack.
         .containerBackground(artBehind ? Color.clear : Theme.bg, for: .navigation)
         .navigationBarTitleDisplayMode(.inline)
