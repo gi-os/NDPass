@@ -10,3 +10,7 @@ vendor/
 .bundle/
 fastlane/screenshots/
 fastlane/test_output/
+# the shared kit (gi-os/.github), fetched by CI and by .claude/hooks/session-start.sh
+.gios/
+.claude/skills/gios-*/
+.claude/settings.local.json

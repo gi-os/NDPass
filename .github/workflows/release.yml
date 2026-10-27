@@ -3,7 +3,8 @@ name: App Store
 # Run by hand. Takes the App Store screenshots on the simulator, uploads the store text in
 # fastlane/metadata and the screenshots, attaches the newest TestFlight build of this
 # version, and — if "submit" is ticked — sends it to App Review, with Gold and Gold Plus
-# unless "iaps" is unticked.
+# unless "iaps" is unticked. (Its own workflow rather than the kit's App Store one, for the
+# in-app purchase toggle; the steps and lanes are the kit's.)
 on:
   workflow_dispatch:
     inputs:
@@ -22,7 +23,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 75
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -34,11 +35,15 @@ jobs:
       REVIEW_EMAIL: ${{ secrets.REVIEW_EMAIL }}
       REVIEW_PHONE: ${{ secrets.REVIEW_PHONE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: gi-os/.github
+          path: .gios
       - name: Select Xcode
-        run: bash ci/select-xcode.sh
+        run: bash .gios/ios/ci/kit.sh select-xcode
       - name: Generate project
-        run: brew install xcodegen >/dev/null && xcodegen generate
+        run: bash .gios/ios/ci/kit.sh generate
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
