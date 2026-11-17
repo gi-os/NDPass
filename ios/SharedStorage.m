@@ -1,5 +1,4 @@
 #import "SharedStorage.h"
-@import WidgetKit;
 
 @implementation SharedStorage
 
@@ -22,13 +21,6 @@ RCT_EXPORT_METHOD(set:(NSString *)key
   }
   [defaults setObject:value forKey:key];
   [defaults synchronize];
-  
-  // Reload widget timelines
-  if (@available(iOS 14.0, *)) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [WidgetCenter.shared reloadAllTimelines];
-    });
-  }
   
   resolve(@YES);
 }
